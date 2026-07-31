@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ----------------------------------------------------------------------------
    Pink · White · Green  —  the Republic of Newfoundland tricolour
@@ -26,6 +27,19 @@
   --color-nl-ink: #14201a;
   --color-nl-fog: #5b6b62;
 
+  /* Semantic tokens — swap via the .dark overrides */
+  --color-canvas: #fbf8f3;         /* page background */
+  --color-ink: #14201a;            /* primary text */
+  --color-surface: #ffffff;        /* cards, header, footer */
+  --color-surface-muted: #fbf8f3;  /* inputs, pills, subtle fills */
+  --color-line: rgba(20, 32, 26, 0.06);        /* hairline borders/dividers */
+  --color-line-strong: rgba(20, 32, 26, 0.12); /* input borders, more visible */
+  --color-fog: #5b6b62;            /* secondary/muted text */
+  --color-hover: rgba(20, 32, 26, 0.05);       /* hover fill on surfaces */
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-text: #b91c1c;
+
   /* Fonts (wired up in layout.tsx) */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
@@ -35,8 +49,29 @@
 }
 
 :root {
-  --background: var(--color-nl-cream);
-  --foreground: var(--color-nl-ink);
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
+}
+
+.dark {
+  --color-canvas: #0f1512;
+  --color-ink: #f2f5f3;
+  --color-surface: #17211c;
+  --color-surface-muted: rgba(255, 255, 255, 0.05);
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.15);
+  --color-fog: #9db3a7;
+  --color-hover: rgba(255, 255, 255, 0.08);
+  --color-danger-bg: rgba(153, 27, 27, 0.15);
+  --color-danger-border: rgba(153, 27, 27, 0.4);
+  --color-danger-text: #f87171;
+
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
+}
+
+.fc {
+  color: var(--color-ink);
 }
 
 @layer base {
@@ -50,6 +85,7 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 
   ::selection {

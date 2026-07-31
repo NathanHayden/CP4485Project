@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export const fieldInputClass =
-  "mt-1 w-full rounded-lg border border-black/10 bg-nl-cream px-3 py-2 text-sm outline-none focus:border-nl-green";
+  "mt-1 w-full rounded-lg border border-line-strong bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-nl-green";
 
 type FieldProps = {
   label: string;
