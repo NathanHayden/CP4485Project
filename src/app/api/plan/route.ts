@@ -14,6 +14,10 @@ export const dynamic = "force-dynamic";
 const ST_JOHNS_LAT = 47.5615;
 const ST_JOHNS_LON = -52.7126;
 
+// The model occasionally drops a stray value into the "days" array, which Groq
+// rejects as json_validate_failed. Asking again usually produces a clean plan.
+const MAX_ATTEMPTS = 3;
+
 const WEATHER_CODE_TEXT: Record<number, string> = {
   0: "clear",
   1: "mostly clear",
@@ -126,6 +130,39 @@ async function getEventLines(
   return lines.join("\n");
 }
 
+// The AI SDK throws either a single API error with a statusCode on it, or a
+// retry error that holds the underlying attempts in an "errors" array. This
+// gathers the status codes out of both shapes.
+function getStatusCodes(error: unknown): number[] {
+  const codes: number[] = [];
+
+  if (!error || typeof error !== "object") {
+    return codes;
+  }
+
+  const outer = error as { statusCode?: number; errors?: unknown[] };
+  if (typeof outer.statusCode === "number") {
+    codes.push(outer.statusCode);
+  }
+
+  if (Array.isArray(outer.errors)) {
+    outer.errors.forEach((attempt) => {
+      if (attempt && typeof attempt === "object") {
+        const inner = attempt as { statusCode?: number };
+        if (typeof inner.statusCode === "number") {
+          codes.push(inner.statusCode);
+        }
+      }
+    });
+  }
+
+  return codes;
+}
+
+function isRateLimited(error: unknown): boolean {
+  return getStatusCodes(error).includes(429);
+}
+
 export async function POST(request: Request) {
   if (!process.env.GROQ_API_KEY) {
     return Response.json(
@@ -207,25 +244,49 @@ RULES
 6. Use the forecast. Put indoor activities on wet or foggy days and outdoor ones on clear days, and say so in weatherNote and in the reason.
 7. matchScore is 1 to 100 and reflects how well the activity fits the stated interests.`;
 
-  try {
-    const result = await generateObject({
-      model: groq("openai/gpt-oss-20b"),
-      schema: travelPlanSchema,
-      schemaName: "travel_plan",
-      schemaDescription: "A day by day travel plan for St. John's.",
-      maxOutputTokens: 4000,
-      providerOptions: {
-        groq: { reasoningEffort: "low", reasoningFormat: "hidden" },
-      },
-      prompt,
-    });
+  let lastError: unknown = null;
 
-    return Response.json(result.object);
-  } catch (error) {
-    console.error("AI plan failed:", error);
-    return Response.json(
-      { error: "The planner couldn't build a plan just now. Please try again." },
-      { status: 502 }
-    );
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const result = await generateObject({
+        model: groq("openai/gpt-oss-20b"),
+        schema: travelPlanSchema,
+        schemaName: "travel_plan",
+        schemaDescription: "A day by day travel plan for St. John's.",
+        maxOutputTokens: 4000,
+        // We do our own retrying below, so the SDK should not also retry and
+        // spend a second call's worth of tokens behind our back.
+        maxRetries: 0,
+        providerOptions: {
+          groq: { reasoningEffort: "low", reasoningFormat: "hidden" },
+        },
+        prompt,
+      });
+
+      return Response.json(result.object);
+    } catch (error) {
+      lastError = error;
+
+      // Trying again straight away would only burn more of the token budget,
+      // so stop and tell the visitor to come back in a moment.
+      if (isRateLimited(error)) {
+        console.error("AI plan hit the Groq rate limit:", error);
+        return Response.json(
+          {
+            error:
+              "The planner is busy right now. Please wait about a minute and try again.",
+          },
+          { status: 429 }
+        );
+      }
+
+      console.error(`AI plan attempt ${attempt} of ${MAX_ATTEMPTS} failed.`);
+    }
   }
+
+  console.error("AI plan failed on every attempt:", lastError);
+  return Response.json(
+    { error: "The planner couldn't build a plan just now. Please try again." },
+    { status: 502 }
+  );
 }
