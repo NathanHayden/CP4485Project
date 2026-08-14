@@ -206,6 +206,27 @@ export default function Home() {
         </div>
 
         <div className="space-y-6">
+          <Link href="/plan" className="block">
+            <Card className="overflow-hidden transition-shadow hover:shadow-md">
+              <div className="bg-gradient-to-br from-nl-green-100 via-white to-nl-pink-100 p-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-nl-green-700">
+                  Trip planner
+                </p>
+                <h3 className="mt-1 font-display text-xl font-extrabold text-nl-ink">
+                  Plan my visit
+                </h3>
+                <p className="mt-2 text-sm text-nl-fog">
+                  A day by day itinerary built from our events calendar and the
+                  local forecast.
+                </p>
+                <span className="mt-3 inline-block text-sm font-bold text-nl-green-700">
+                  Build my plan →
+                </span>
+              </div>
+              <div className="tricolour-bar h-1.5 w-full" />
+            </Card>
+          </Link>
+
           <section>
             <div className="flex items-center justify-between">
               <SectionHeading>Events Calendar</SectionHeading>

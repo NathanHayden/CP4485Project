@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/weather", label: "Weather" },
   { href: "/events", label: "Events" },
+  { href: "/plan", label: "Plan my visit" },
 ];
 
 type SessionUser = {
