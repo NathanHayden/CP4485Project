@@ -182,14 +182,14 @@ export default function Home() {
                       key={day.date}
                       className="flex flex-col items-center gap-1 p-2 text-center"
                     >
-                      <span className="text-[0.65rem] font-bold uppercase tracking-wider text-nl-fog">
+                      <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
                         {date.toLocaleDateString("en-CA", { weekday: "short" })}
                       </span>
                       <span className="text-lg">
                         {CONDITION_ICON[conditionFromCode(day.code)]}
                       </span>
                       <span className="text-sm font-bold">{day.high}°</span>
-                      <span className="text-xs text-nl-fog">{day.low}°</span>
+                      <span className="text-xs text-fog">{day.low}°</span>
                     </Card>
                   );
                 })}
@@ -246,7 +246,7 @@ export default function Home() {
             <SectionHeading>Upcoming Events</SectionHeading>
             <ul className="mt-3 space-y-2">
               {upcoming.length === 0 && (
-                <li className="text-sm text-nl-fog">No upcoming events yet.</li>
+                <li className="text-sm text-fog">No upcoming events yet.</li>
               )}
               {upcoming.map((event) => {
                 const day = new Date(`${event.date}T00:00:00`);
@@ -265,7 +265,7 @@ export default function Home() {
                         <p className="truncate text-sm font-semibold">
                           {event.title}
                         </p>
-                        <p className="truncate text-xs text-nl-fog">
+                        <p className="truncate text-xs text-fog">
                           {event.location}
                         </p>
                       </div>

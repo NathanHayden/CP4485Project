@@ -41,6 +41,8 @@ const activitySchema = z.object({
     ),
   matchScore: z
     .number()
+    .min(1)
+    .max(100)
     .describe("How well this fits the visitor's stated interests, from 1 to 100."),
   fromCalendar: z
     .boolean()

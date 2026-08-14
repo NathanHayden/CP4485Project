@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import TricolourBar from "@/components/TricolourBar";
 import { logout } from "@/app/auth/actions";
@@ -50,10 +51,11 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
             {user ? (
               <>
                 {user.picture ? (
-                  <img
+                  <Image
                     src={user.picture}
                     alt={user.name ? user.name : "Profile"}
-                    referrerPolicy="no-referrer"
+                    width={32}
+                    height={32}
                     className="h-8 w-8 rounded-full object-cover ring-1 ring-line-strong"
                   />
                 ) : null}
@@ -110,10 +112,11 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
               <>
                 <div className="flex items-center gap-3 px-3 py-2">
                   {user.picture ? (
-                    <img
+                    <Image
                       src={user.picture}
                       alt={user.name ? user.name : "Profile"}
-                      referrerPolicy="no-referrer"
+                      width={32}
+                      height={32}
                       className="h-8 w-8 rounded-full object-cover ring-1 ring-line-strong"
                     />
                   ) : null}

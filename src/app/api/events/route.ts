@@ -1,5 +1,6 @@
 import { connectToDB } from "@/app/api/db";
 import { revalidatePath } from "next/cache";
+import { getAllEvents } from "@/app/events/queries";
 import { validateEventInput } from "@/app/events/validateEvent";
 import { cookies } from "next/headers";
 import { jwtVerify, type JWTPayload } from "jose";
@@ -8,33 +9,9 @@ import { ObjectId } from "mongodb";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const { db } = await connectToDB();
-
-  const events = await db
-    .collection("events")
-    .find({})
-    .sort({ date: 1, startTime: 1 })
-    .toArray();
-
-  const serialized = events.map((event) => {
-    return {
-      _id: event._id.toString(),
-      title: event.title ? event.title : "",
-      description: event.description ? event.description : "",
-      category: event.category ? event.category : "Other",
-      location: event.location ? event.location : "",
-      date: event.date ? event.date : "",
-      endDate: event.endDate ? event.endDate : "",
-      startTime: event.startTime ? event.startTime : "",
-      endTime: event.endTime ? event.endTime : "",
-      url: event.url ? event.url : "",
-      submittedBy: event.submittedBy ? event.submittedBy : "",
-      userId: event.userId ? event.userId.toString() : "",
-      createdAt: event.createdAt,
-    };
-  });
-
-  return Response.json(serialized);
+  // Shared with the events pages so both go through the same $lookup join.
+  const events = await getAllEvents();
+  return Response.json(events);
 }
 
 export async function POST(request: Request) {
