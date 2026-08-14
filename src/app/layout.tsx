@@ -54,7 +54,7 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${display.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-nl-cream text-nl-ink">
+      <body className="min-h-full flex flex-col">
         <SplashScreen />
         <Navbar user={user} />
         <main className="flex-1 w-full">{children}</main>

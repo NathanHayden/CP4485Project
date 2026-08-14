@@ -21,7 +21,7 @@ export default function LoginPage() {
       <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
         Sign <span className="text-tricolour">In</span>
       </h1>
-      <p className="mt-3 text-base text-nl-fog">
+      <p className="mt-3 text-base text-fog">
         Log in with your Google account to add and manage events.
       </p>
 

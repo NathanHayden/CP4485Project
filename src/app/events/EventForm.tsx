@@ -69,7 +69,7 @@ export default function EventForm({
       {hiddenId && <input type="hidden" name="id" value={hiddenId} />}
 
       {shownError && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+        <p className="rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-sm font-medium text-danger-text">
           {shownError}
         </p>
       )}

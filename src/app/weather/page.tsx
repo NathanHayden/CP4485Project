@@ -49,7 +49,7 @@ export default function Weather() {
           </h1>
         </div>
 
-        <div className="relative w-full max-w-md animate-float-up overflow-hidden rounded-3xl border border-black/5 bg-white shadow-xl">
+        <div className="relative w-full max-w-md animate-float-up overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-xl">
           <TricolourBar className="h-1.5 w-full" />
           <div className="p-6">
             <div className="flex items-center justify-between">
@@ -60,7 +60,7 @@ export default function Weather() {
               >
                 {isFahrenheit ? "Switch to Metric (°C)" : "Switch to Imperial (°F)"}
               </button>
-              <span className="text-md font-semibold uppercase tracking-wider text-nl-fog">
+              <span className="text-md font-semibold uppercase tracking-wider text-fog">
                 St. John's, NL
               </span>
             </div>
@@ -75,9 +75,9 @@ export default function Weather() {
                     <div>
                       <h2 className="font-display text-5xl font-extrabold leading-none tracking-tight">
                         {isFahrenheit ? Math.round(parseInt(temp) * 9/5 + 32) : parseInt(temp)}
-                        <span className="align-top text-2xl text-nl-fog"> {isFahrenheit ? "°F" : "°C"}</span>
+                        <span className="align-top text-2xl text-fog"> {isFahrenheit ? "°F" : "°C"}</span>
                       </h2>
-                      <p className="mt-1 text-sm font-medium text-nl-fog">
+                      <p className="mt-1 text-sm font-medium text-fog">
                         {condition}
                       </p>
                     </div>
@@ -85,7 +85,7 @@ export default function Weather() {
                 )}
 
                 {feelsLike && (
-                  <div className="mt-6 rounded-2xl bg-gradient-to-r from-nl-green-50 to-nl-pink-50 p-3.5 text-center text-sm text-nl-ink/80">
+                  <div className="mt-6 rounded-2xl bg-gradient-to-r from-nl-green-50 to-nl-pink-50 p-3.5 text-center text-sm text-nl-ink">
                     Feels like{" "}
                     <span className="font-extrabold text-nl-green-700">
                       {isFahrenheit ? Math.round(parseInt(feelsLike) * 9/5 + 32) : parseInt(feelsLike)}°{isFahrenheit ? "F" : "C"}
@@ -94,19 +94,19 @@ export default function Weather() {
                 )}
 
                 <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex flex-col gap-1 rounded-2xl border border-black/5 bg-nl-cream p-4">
-                    <span className="text-[0.65rem] font-bold uppercase tracking-wider text-nl-fog">
+                  <div className="flex flex-col gap-1 rounded-2xl border border-line bg-surface-muted p-4">
+                    <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
                       Humidity
                     </span>
-                    <span className="text-lg font-extrabold text-nl-ink">
+                    <span className="text-lg font-extrabold text-ink">
                       {humidity}%
                     </span>
                   </div>
-                  <div className="flex flex-col gap-1 rounded-2xl border border-black/5 bg-nl-cream p-4">
-                    <span className="text-[0.65rem] font-bold uppercase tracking-wider text-nl-fog">
+                  <div className="flex flex-col gap-1 rounded-2xl border border-line bg-surface-muted p-4">
+                    <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
                       Wind Speed
                     </span>
-                    <span className="text-lg font-extrabold text-nl-ink">
+                    <span className="text-lg font-extrabold text-ink">
                       {isFahrenheit ? Math.round(parseFloat(wind) * 0.621) : parseInt(wind)} {isFahrenheit ? "mph" : "km/h"}
                     </span>
                   </div>
