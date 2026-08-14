@@ -31,7 +31,7 @@ export default async function PlanPage() {
         </span>
       </h1>
 
-      <p className="mt-4 text-nl-fog">
+      <p className="mt-4 text-fog">
         Tell us when you&apos;re here and what you&apos;re into. We&apos;ll read the
         events already on our calendar, check the St. John&apos;s forecast, and put
         together a day by day plan.

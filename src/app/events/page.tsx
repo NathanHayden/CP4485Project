@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import EventsCalendar from "./EventsCalendar";
+import { getAllEvents } from "./queries";
 import Button from "@/components/Button";
 
 export const metadata = {
@@ -23,6 +24,10 @@ export default async function EventsPage() {
     }
   }
 
+  // Loaded here on the server so the calendar arrives with its events already
+  // in place, instead of the browser making a second request after it mounts.
+  const events = await getAllEvents();
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -38,7 +43,7 @@ export default async function EventsPage() {
       </div>
 
       <div className="mt-10">
-        <EventsCalendar currentUserId={currentUserId} />
+        <EventsCalendar events={events} currentUserId={currentUserId} />
       </div>
     </div>
   );

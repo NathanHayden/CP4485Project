@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import FullCalendar from "@fullcalendar/react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventClickArg, EventInput } from "@fullcalendar/core";
@@ -26,6 +27,16 @@ const fcTheme = {
   "--fc-neutral-bg-color": "var(--color-surface-muted)",
 } as React.CSSProperties;
 
+// FullCalendar reads the browser's clock and timezone as it renders, so letting
+// it render on the server produces markup that does not match the client. Load
+// it on the client only, which also saves us a "have I mounted yet" state flag.
+const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
+  ssr: false,
+  loading: () => (
+    <p className="py-10 text-center text-sm text-fog">Loading calendar…</p>
+  ),
+});
+
 function prettyTime(t: string): string {
   if (!t) return "";
   const [h, m] = t.split(":").map(Number);
@@ -35,31 +46,17 @@ function prettyTime(t: string): string {
 }
 
 export default function EventsCalendar({
+  events,
   currentUserId,
 }: {
+  events: TravelEvent[];
   currentUserId: string | null;
 }) {
-  const [events, setEvents] = useState<TravelEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
   const [selected, setSelected] = useState<TravelEvent | null>(null);
-  const [mounted, setMounted] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  useEffect(() => setMounted(true), []);
-
-  const loadEvents = useCallback(() => {
-    setLoading(true);
-    fetch("/api/events")
-      .then((res) => res.json())
-      .then((data: TravelEvent[]) => setEvents(data))
-      .catch((err) => console.error("Failed to load events:", err))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
 
   const fcEvents = useMemo<EventInput[]>(
     () =>
@@ -100,7 +97,9 @@ export default function EventsCalendar({
         throw new Error(message);
       }
       setSelected(null);
-      loadEvents();
+      // Ask the server component above us to re-run its query and send down
+      // the updated list.
+      router.refresh();
     } catch (err) {
       setDeleteError(
         err instanceof Error ? err.message : "Failed to delete event"
@@ -114,26 +113,20 @@ export default function EventsCalendar({
     <div className="grid gap-8 lg:grid-cols-[1fr_22rem]">
       <Card className="overflow-hidden p-4 sm:p-5" style={fcTheme}>
         <TricolourBar className="mb-4 h-1.5 w-full rounded-full" />
-        {mounted ? (
-          <FullCalendar
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={{
-              left: "prev,next today",
-              center: "title",
-              right: "",
-            }}
-            firstDay={0}
-            height="auto"
-            events={fcEvents}
-            eventClick={handleEventClick}
-            dayMaxEvents={3}
-          />
-        ) : (
-          <p className="py-10 text-center text-sm text-fog">
-            Loading calendar…
-          </p>
-        )}
+        <FullCalendar
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: "",
+          }}
+          firstDay={0}
+          height="auto"
+          events={fcEvents}
+          eventClick={handleEventClick}
+          dayMaxEvents={3}
+        />
       </Card>
 
       <aside>
@@ -141,9 +134,7 @@ export default function EventsCalendar({
           {selected ? selected.title : "Event details"}
         </h3>
 
-        {loading && <p className="mt-3 text-sm text-fog">Loading events…</p>}
-
-        {!loading && !selected && (
+        {!selected && (
           <p className="mt-3 text-sm text-fog">
             Click an event on the calendar to see the details.
           </p>

@@ -125,7 +125,7 @@ export default function PlanForm() {
                     className={
                       selected
                         ? "rounded-full bg-nl-green px-4 py-2 text-sm font-bold text-white"
-                        : "rounded-full bg-black/5 px-4 py-2 text-sm font-semibold text-nl-fog hover:bg-black/10"
+                        : "rounded-full bg-hover px-4 py-2 text-sm font-semibold text-fog hover:opacity-80"
                     }
                   >
                     {category}
@@ -186,7 +186,7 @@ export default function PlanForm() {
           <p className="font-display text-lg font-extrabold">
             Checking the calendar and the forecast…
           </p>
-          <p className="mt-1 text-sm text-nl-fog">
+          <p className="mt-1 text-sm text-fog">
             This usually takes a few seconds.
           </p>
           <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-black/5">

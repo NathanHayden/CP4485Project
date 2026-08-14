@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import TricolourBar from "@/components/TricolourBar";
 
 export default function Weather() {
@@ -61,15 +62,24 @@ export default function Weather() {
                 {isFahrenheit ? "Switch to Metric (°C)" : "Switch to Imperial (°F)"}
               </button>
               <span className="text-md font-semibold uppercase tracking-wider text-fog">
-                St. John's, NL
+                St. John&apos;s, NL
               </span>
             </div>
 
+                {loading && (
+                  <p className="mt-6 text-center text-sm text-fog">
+                    Loading current conditions…
+                  </p>
+                )}
+
                 {icon && (
                   <div className="mt-6 flex items-center justify-center gap-5">
-                    <img
+                    <Image
                       src={icon}
                       alt={condition}
+                      width={80}
+                      height={68}
+                      unoptimized
                       className="h-17 w-20"
                     />
                     <div>

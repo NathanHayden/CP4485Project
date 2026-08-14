@@ -1,3 +1,10 @@
+// Filled in by the $lookup against the users collection. Null when the event's
+// author no longer has an account.
+export type EventSubmitter = {
+  name: string;
+  picture: string;
+};
+
 export type TravelEvent = {
   _id: string;
   title: string;
@@ -12,6 +19,7 @@ export type TravelEvent = {
   submittedBy: string;
   userId: string;
   createdAt: string;
+  submitter: EventSubmitter | null;
 };
 
 export const EVENT_CATEGORIES = [

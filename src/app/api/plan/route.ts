@@ -1,22 +1,13 @@
-import { generateObject } from "ai";
-import { groq } from "@ai-sdk/groq";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { connectToDB } from "@/app/api/db";
-import {
-  planRequestSchema,
-  travelPlanSchema,
-  MAX_TRIP_DAYS,
-} from "@/app/plan/schema";
+import { planRequestSchema, MAX_TRIP_DAYS } from "@/app/plan/schema";
+import { generateTravelPlan } from "@/lib/ai/travelPlan";
 
 export const dynamic = "force-dynamic";
 
 const ST_JOHNS_LAT = 47.5615;
 const ST_JOHNS_LON = -52.7126;
-
-// The model occasionally drops a stray value into the "days" array, which Groq
-// rejects as json_validate_failed. Asking again usually produces a clean plan.
-const MAX_ATTEMPTS = 3;
 
 const WEATHER_CODE_TEXT: Record<number, string> = {
   0: "clear",
@@ -98,10 +89,13 @@ async function getForecastLines(
   return lines.join("\n");
 }
 
-async function getEventLines(
+// Returns the lines we show the model, plus the set of ids we actually gave it.
+// We keep the ids so we can check afterwards that the model only pointed at
+// events that really exist, instead of trusting whatever it wrote back.
+async function getCalendarEvents(
   startDate: string,
   endDate: string
-): Promise<string> {
+): Promise<{ lines: string; validIds: Set<string> }> {
   const { db } = await connectToDB();
 
   const events = await db
@@ -116,10 +110,16 @@ async function getEventLines(
   });
 
   if (overlapping.length === 0) {
-    return "There are no events on the calendar during these dates.";
+    return {
+      lines: "There are no events on the calendar during these dates.",
+      validIds: new Set(),
+    };
   }
 
-  const lines = overlapping.slice(0, 25).map((event) => {
+  const shown = overlapping.slice(0, 25);
+  const validIds = new Set(shown.map((event) => event._id.toString()));
+
+  const lines = shown.map((event) => {
     const id = event._id.toString();
     const runsUntil = event.endDate ? ` to ${event.endDate}` : "";
     const time = event.startTime ? ` at ${event.startTime}` : "";
@@ -127,40 +127,7 @@ async function getEventLines(
     return `id=${id} | ${event.date}${runsUntil}${time} | ${event.title} | ${event.category} | ${event.location}${details}`;
   });
 
-  return lines.join("\n");
-}
-
-// The AI SDK throws either a single API error with a statusCode on it, or a
-// retry error that holds the underlying attempts in an "errors" array. This
-// gathers the status codes out of both shapes.
-function getStatusCodes(error: unknown): number[] {
-  const codes: number[] = [];
-
-  if (!error || typeof error !== "object") {
-    return codes;
-  }
-
-  const outer = error as { statusCode?: number; errors?: unknown[] };
-  if (typeof outer.statusCode === "number") {
-    codes.push(outer.statusCode);
-  }
-
-  if (Array.isArray(outer.errors)) {
-    outer.errors.forEach((attempt) => {
-      if (attempt && typeof attempt === "object") {
-        const inner = attempt as { statusCode?: number };
-        if (typeof inner.statusCode === "number") {
-          codes.push(inner.statusCode);
-        }
-      }
-    });
-  }
-
-  return codes;
-}
-
-function isRateLimited(error: unknown): boolean {
-  return getStatusCodes(error).includes(429);
+  return { lines: lines.join("\n"), validIds };
 }
 
 export async function POST(request: Request) {
@@ -205,88 +172,44 @@ export async function POST(request: Request) {
     );
   }
 
-  const [name, forecast, calendarEvents] = await Promise.all([
+  const [name, forecast, calendar] = await Promise.all([
     getSignedInName(),
     getForecastLines(startDate, endDate),
-    getEventLines(startDate, endDate),
+    getCalendarEvents(startDate, endDate),
   ]);
 
-  const greeting = name
-    ? `The visitor is signed in and their name is ${name}. Address them by name in the overview.`
-    : "The visitor is not signed in, so keep the tone welcoming but general.";
+  const outcome = await generateTravelPlan(
+    {
+      startDate,
+      endDate,
+      tripLength,
+      interests,
+      travellingWith,
+      pace,
+      notes,
+      visitorName: name,
+      forecast,
+      calendarEvents: calendar.lines,
+    },
+    calendar.validIds
+  );
 
-  const prompt = `You are a local travel advisor for St. John's, Newfoundland and Labrador, Canada.
-
-Build a day by day plan for a visitor.
-
-VISITOR
-${greeting}
-Arriving: ${startDate}
-Leaving: ${endDate}
-Trip length: ${tripLength} day(s)
-Interests: ${interests.join(", ")}
-Travelling as: ${travellingWith}
-Preferred pace: ${pace}
-Extra notes from the visitor: ${notes ? notes : "(none)"}
-
-EVENTS ON OUR SITE'S CALENDAR DURING THE TRIP
-${calendarEvents}
-
-WEATHER FORECAST FOR ST. JOHN'S
-${forecast}
-
-RULES
-1. Create exactly one entry in "days" for every date from ${startDate} to ${endDate} inclusive, in order.
-2. Prefer the real calendar events above when they match the visitor's interests. When you use one, copy its name, set fromCalendar to true and put its id in eventId.
-3. You may add your own well known St. John's suggestions (Signal Hill, Cape Spear, Quidi Vidi, The Rooms, Jellybean Row, George Street, Petty Harbour and similar) to fill the gaps. For those set fromCalendar to false and leave eventId as an empty string.
-4. Never invent a calendar event that is not listed above.
-5. Match the pace: Relaxed means 2 activities a day, Balanced means 3, Packed means 4.
-6. Use the forecast. Put indoor activities on wet or foggy days and outdoor ones on clear days, and say so in weatherNote and in the reason.
-7. matchScore is 1 to 100 and reflects how well the activity fits the stated interests.`;
-
-  let lastError: unknown = null;
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const result = await generateObject({
-        model: groq("openai/gpt-oss-20b"),
-        schema: travelPlanSchema,
-        schemaName: "travel_plan",
-        schemaDescription: "A day by day travel plan for St. John's.",
-        maxOutputTokens: 4000,
-        // We do our own retrying below, so the SDK should not also retry and
-        // spend a second call's worth of tokens behind our back.
-        maxRetries: 0,
-        providerOptions: {
-          groq: { reasoningEffort: "low", reasoningFormat: "hidden" },
-        },
-        prompt,
-      });
-
-      return Response.json(result.object);
-    } catch (error) {
-      lastError = error;
-
-      // Trying again straight away would only burn more of the token budget,
-      // so stop and tell the visitor to come back in a moment.
-      if (isRateLimited(error)) {
-        console.error("AI plan hit the Groq rate limit:", error);
-        return Response.json(
-          {
-            error:
-              "The planner is busy right now. Please wait about a minute and try again.",
-          },
-          { status: 429 }
-        );
-      }
-
-      console.error(`AI plan attempt ${attempt} of ${MAX_ATTEMPTS} failed.`);
-    }
+  if (outcome.status === "rate-limited") {
+    return Response.json(
+      {
+        error:
+          "The planner is busy right now. Please wait about a minute and try again.",
+      },
+      { status: 429 }
+    );
   }
 
-  console.error("AI plan failed on every attempt:", lastError);
-  return Response.json(
-    { error: "The planner couldn't build a plan just now. Please try again." },
-    { status: 502 }
-  );
+  if (outcome.status === "failed") {
+    return Response.json(
+      { error: "The planner couldn't build a plan just now. Please try again." },
+      { status: 502 }
+    );
+  }
+
+  return Response.json(outcome.plan);
 }

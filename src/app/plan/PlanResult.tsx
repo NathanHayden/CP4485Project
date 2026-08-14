@@ -25,7 +25,7 @@ function scoreColour(score: number): string {
   if (score >= 55) {
     return "bg-nl-pink-50 text-nl-pink-700";
   }
-  return "bg-black/5 text-nl-fog";
+  return "bg-hover text-fog";
 }
 
 function longDate(date: string): string {
@@ -40,13 +40,13 @@ function Activity({ activity }: { activity: PlanActivity }) {
   const icon = TIME_ICON[activity.timeOfDay] ? TIME_ICON[activity.timeOfDay] : "📍";
 
   return (
-    <li className="rounded-xl border border-black/5 bg-nl-cream p-4">
+    <li className="rounded-xl border border-line bg-surface-muted p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-wider text-nl-fog">
+          <p className="text-xs font-bold uppercase tracking-wider text-fog">
             {icon} {activity.timeOfDay}
           </p>
-          <h4 className="mt-1 font-display text-lg font-extrabold text-nl-ink">
+          <h4 className="mt-1 font-display text-lg font-extrabold text-ink">
             {activity.name}
           </h4>
         </div>
@@ -64,22 +64,24 @@ function Activity({ activity }: { activity: PlanActivity }) {
         </span>
 
         {activity.fromCalendar ? (
+          // The route already checked this id against the events it handed the
+          // model, so it always points at a real event page.
           <Link
-            href="/events"
+            href={`/events/${activity.eventId}`}
             className="rounded-full bg-nl-pink-100 px-2.5 py-0.5 text-xs font-semibold text-nl-pink-700 hover:underline"
           >
-            ★ On our calendar
+            ★ On our calendar — see details
           </Link>
         ) : (
-          <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-nl-fog">
+          <span className="rounded-full bg-hover px-2.5 py-0.5 text-xs font-semibold text-fog">
             Local suggestion
           </span>
         )}
       </div>
 
-      <p className="mt-3 text-sm text-nl-ink/80">{activity.description}</p>
+      <p className="mt-3 text-sm text-ink/80">{activity.description}</p>
 
-      <p className="mt-2 border-l-2 border-nl-pink pl-3 text-sm italic text-nl-fog">
+      <p className="mt-2 border-l-2 border-nl-pink pl-3 text-sm italic text-fog">
         {activity.reason}
       </p>
     </li>
