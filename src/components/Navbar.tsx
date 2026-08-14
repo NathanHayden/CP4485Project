@@ -22,12 +22,12 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 bg-surface shadow-sm">
       <TricolourBar />
 
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-extrabold">
-          <span className="flex h-7 w-7 overflow-hidden rounded-md ring-1 ring-black/5">
+          <span className="flex h-7 w-7 overflow-hidden rounded-md ring-1 ring-line">
             <span className="h-full w-1/3 bg-nl-green" />
             <span className="h-full w-1/3 bg-white" />
             <span className="h-full w-1/3 bg-nl-pink" />
@@ -40,7 +40,7 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
             <li key={l.href}>
               <Link
                 href={l.href}
-                className="font-semibold text-nl-ink/70 transition-colors hover:text-nl-green-700"
+                className="font-semibold text-ink/70 transition-colors hover:text-nl-green-700"
               >
                 {l.label}
               </Link>
@@ -54,18 +54,18 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
                     src={user.picture}
                     alt={user.name ? user.name : "Profile"}
                     referrerPolicy="no-referrer"
-                    className="h-8 w-8 rounded-full object-cover ring-1 ring-black/10"
+                    className="h-8 w-8 rounded-full object-cover ring-1 ring-line-strong"
                   />
                 ) : null}
                 {user.name ? (
-                  <span className="font-semibold text-nl-ink/80">
+                  <span className="font-semibold text-ink/80">
                     {user.name}
                   </span>
                 ) : null}
                 <form action={logout}>
                   <button
                     type="submit"
-                    className="font-semibold text-nl-ink/70 transition-colors hover:text-nl-green-700"
+                    className="font-semibold text-ink/70 transition-colors hover:text-nl-green-700"
                   >
                     Logout
                   </button>
@@ -74,7 +74,7 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
             ) : (
               <Link
                 href="/login"
-                className="font-semibold text-nl-ink/70 transition-colors hover:text-nl-green-700"
+                className="font-semibold text-ink/70 transition-colors hover:text-nl-green-700"
               >
                 Login
               </Link>
@@ -93,13 +93,13 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
       </nav>
 
       {open && (
-        <ul className="flex flex-col gap-1 border-t border-black/5 px-4 py-2 md:hidden">
+        <ul className="flex flex-col gap-1 border-t border-line px-4 py-2 md:hidden">
           {links.map((l) => (
             <li key={l.href}>
               <Link
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2 font-semibold text-nl-ink/80 hover:bg-black/5"
+                className="block rounded-lg px-3 py-2 font-semibold text-ink/80 hover:bg-hover"
               >
                 {l.label}
               </Link>
@@ -114,11 +114,11 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
                       src={user.picture}
                       alt={user.name ? user.name : "Profile"}
                       referrerPolicy="no-referrer"
-                      className="h-8 w-8 rounded-full object-cover ring-1 ring-black/10"
+                      className="h-8 w-8 rounded-full object-cover ring-1 ring-line-strong"
                     />
                   ) : null}
                   {user.name ? (
-                    <span className="font-semibold text-nl-ink/80">
+                    <span className="font-semibold text-ink/80">
                       {user.name}
                     </span>
                   ) : null}
@@ -126,7 +126,7 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
                 <form action={logout}>
                   <button
                     type="submit"
-                    className="block w-full rounded-lg px-3 py-2 text-left font-semibold text-nl-ink/80 hover:bg-black/5"
+                    className="block w-full rounded-lg px-3 py-2 text-left font-semibold text-ink/80 hover:bg-hover"
                   >
                     Logout
                   </button>
@@ -136,7 +136,7 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
               <Link
                 href="/login"
                 onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2 font-semibold text-nl-ink/80 hover:bg-black/5"
+                className="block rounded-lg px-3 py-2 font-semibold text-ink/80 hover:bg-hover"
               >
                 Login
               </Link>

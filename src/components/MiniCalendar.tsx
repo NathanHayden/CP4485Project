@@ -51,7 +51,7 @@ export default function MiniCalendar({ events }: { events: TravelEvent[] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <span className="font-display text-lg font-extrabold">
           {MONTHS[month]} {year}
@@ -61,7 +61,7 @@ export default function MiniCalendar({ events }: { events: TravelEvent[] }) {
             type="button"
             onClick={() => goToMonth(-1)}
             aria-label="Previous month"
-            className="rounded-md border border-black/10 px-2 py-0.5 text-sm font-bold text-nl-ink/70 hover:bg-black/5"
+            className="rounded-md border border-line-strong px-2 py-0.5 text-sm font-bold text-ink/70 hover:bg-hover"
           >
             ‹
           </button>
@@ -69,14 +69,14 @@ export default function MiniCalendar({ events }: { events: TravelEvent[] }) {
             type="button"
             onClick={() => goToMonth(1)}
             aria-label="Next month"
-            className="rounded-md border border-black/10 px-2 py-0.5 text-sm font-bold text-nl-ink/70 hover:bg-black/5"
+            className="rounded-md border border-line-strong px-2 py-0.5 text-sm font-bold text-ink/70 hover:bg-hover"
           >
             ›
           </button>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[0.7rem] font-bold uppercase text-nl-fog">
+      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[0.7rem] font-bold uppercase text-fog">
         {WEEKDAYS.map((weekday) => (
           <div key={weekday}>{weekday}</div>
         ))}
@@ -94,7 +94,7 @@ export default function MiniCalendar({ events }: { events: TravelEvent[] }) {
             <div
               key={index}
               className={`flex aspect-square flex-col items-center justify-center rounded-lg text-sm ${
-                isToday ? "bg-nl-green font-bold text-white" : "text-nl-ink"
+                isToday ? "bg-nl-green font-bold text-white" : "text-ink"
               }`}
             >
               {day}

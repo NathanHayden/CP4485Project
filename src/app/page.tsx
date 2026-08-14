@@ -71,9 +71,9 @@ function SectionHeading({ children }: { children: ReactNode }) {
 
 function WeatherStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-lg bg-white/70 px-3 py-2 ring-1 ring-black/5">
-      <span className="font-mono text-sm font-medium text-nl-ink">{value}</span>
-      <span className="text-[0.65rem] uppercase tracking-wider text-nl-fog">
+    <div className="flex flex-col items-center gap-1 rounded-lg bg-surface/70 px-3 py-2 ring-1 ring-line">
+      <span className="font-mono text-sm font-medium text-ink">{value}</span>
+      <span className="text-[0.65rem] uppercase tracking-wider text-fog">
         {label}
       </span>
     </div>

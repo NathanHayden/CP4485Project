@@ -11,7 +11,7 @@ export default function Card({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-black/5 bg-white shadow-sm ${className}`}
+      className={`rounded-2xl border border-line bg-surface shadow-sm ${className}`}
       style={style}
     >
       {children}

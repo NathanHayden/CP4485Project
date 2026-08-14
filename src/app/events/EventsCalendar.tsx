@@ -11,18 +11,19 @@ import TricolourBar from "@/components/TricolourBar";
 import Button from "@/components/Button";
 
 const fcTheme = {
-  "--fc-border-color": "rgba(0,0,0,0.06)",
+  "--fc-border-color": "var(--color-line)",
   "--fc-button-bg-color": "#00a859",
   "--fc-button-border-color": "#00a859",
   "--fc-button-hover-bg-color": "#007a40",
   "--fc-button-hover-border-color": "#007a40",
   "--fc-button-active-bg-color": "#007a40",
   "--fc-button-active-border-color": "#007a40",
-  "--fc-today-bg-color": "rgba(0,168,89,0.08)",
+  "--fc-today-bg-color": "rgba(0,168,89,0.1)",
   "--fc-event-bg-color": "#ff94cb",
   "--fc-event-border-color": "#ff94cb",
   "--fc-event-text-color": "#14201a",
-  "--fc-page-bg-color": "#ffffff",
+  "--fc-page-bg-color": "var(--color-surface)",
+  "--fc-neutral-bg-color": "var(--color-surface-muted)",
 } as React.CSSProperties;
 
 function prettyTime(t: string): string {
@@ -129,7 +130,7 @@ export default function EventsCalendar({
             dayMaxEvents={3}
           />
         ) : (
-          <p className="py-10 text-center text-sm text-nl-fog">
+          <p className="py-10 text-center text-sm text-fog">
             Loading calendar…
           </p>
         )}
@@ -140,10 +141,10 @@ export default function EventsCalendar({
           {selected ? selected.title : "Event details"}
         </h3>
 
-        {loading && <p className="mt-3 text-sm text-nl-fog">Loading events…</p>}
+        {loading && <p className="mt-3 text-sm text-fog">Loading events…</p>}
 
         {!loading && !selected && (
-          <p className="mt-3 text-sm text-nl-fog">
+          <p className="mt-3 text-sm text-fog">
             Click an event on the calendar to see the details.
           </p>
         )}
@@ -155,14 +156,14 @@ export default function EventsCalendar({
                 {selected.category}
               </span>
             </div>
-            <p className="mt-2 text-sm font-semibold text-nl-ink">
+            <p className="mt-2 text-sm font-semibold text-ink">
               {new Date(`${selected.date}T00:00:00`).toLocaleDateString(
                 "en-CA",
                 { weekday: "long", month: "long", day: "numeric" }
               )}
             </p>
             {(selected.startTime || selected.location) && (
-              <p className="mt-1 text-xs font-medium text-nl-fog">
+              <p className="mt-1 text-xs font-medium text-fog">
                 {prettyTime(selected.startTime)}
                 {selected.startTime && selected.endTime
                   ? `–${prettyTime(selected.endTime)}`
@@ -172,7 +173,7 @@ export default function EventsCalendar({
               </p>
             )}
             {selected.description && (
-              <p className="mt-2 text-sm text-nl-ink/80">
+              <p className="mt-2 text-sm text-ink/80">
                 {selected.description}
               </p>
             )}
@@ -187,7 +188,7 @@ export default function EventsCalendar({
               </a>
             )}
             {selected.submittedBy && (
-              <p className="mt-2 text-[0.65rem] text-nl-fog">
+              <p className="mt-2 text-[0.65rem] text-fog">
                 Added by {selected.submittedBy}
               </p>
             )}
