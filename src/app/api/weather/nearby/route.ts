@@ -66,25 +66,49 @@ function parseCity(
   };
 }
 
-export async function GET() {
-  const cities = await Promise.all(
-    SITES.map(async (site) => {
-      const res = await fetch(
-        `https://api.weather.gc.ca/collections/citypageweather-realtime/items/${site.id}?lang=en`,
-        { next: { revalidate: 600 } }
-      );
-      const data = await res.json();
-      const props = data.properties;
-      const coordinates = data.geometry ? data.geometry.coordinates : [null, null];
-      return parseCity(
-        site.name,
-        props.region,
-        coordinates[0],
-        coordinates[1],
-        props.currentConditions
-      );
-    })
-  );
+const UNAVAILABLE = "The weather service is unavailable right now.";
 
-  return Response.json(cities);
+export async function GET() {
+  try {
+    const cities = await Promise.all(
+      SITES.map(async (site) => {
+        const res = await fetch(
+          `https://api.weather.gc.ca/collections/citypageweather-realtime/items/${site.id}?lang=en`,
+          { next: { revalidate: 600 } }
+        );
+
+        if (!res.ok) {
+          throw new Error(
+            `Environment Canada replied with ${res.status} for ${site.id}.`
+          );
+        }
+
+        const data = await res.json();
+        const props = data.properties;
+
+        // An error payload still parses as JSON, so check for the parts we
+        // actually read before reaching into them.
+        if (!props || !props.currentConditions) {
+          throw new Error(`Environment Canada sent no conditions for ${site.id}.`);
+        }
+
+        const coordinates = data.geometry
+          ? data.geometry.coordinates
+          : [null, null];
+
+        return parseCity(
+          site.name,
+          props.region,
+          coordinates[0],
+          coordinates[1],
+          props.currentConditions
+        );
+      })
+    );
+
+    return Response.json(cities);
+  } catch (error) {
+    console.error("Could not load current conditions:", error);
+    return Response.json({ error: UNAVAILABLE }, { status: 502 });
+  }
 }

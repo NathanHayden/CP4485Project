@@ -6,6 +6,13 @@ import { generateTravelPlan } from "@/lib/ai/travelPlan";
 
 export const dynamic = "force-dynamic";
 
+// Building a plan can take a while: up to MAX_ATTEMPTS tries at the model,
+// one after another, plus the forecast and the database lookup. Hosting
+// platforms cut a request off after a default that is shorter than that, so
+// we ask for the full minute. Without this a slow plan is killed part way
+// and the visitor gets a blank gateway error instead of our own message.
+export const maxDuration = 60;
+
 const ST_JOHNS_LAT = 47.5615;
 const ST_JOHNS_LON = -52.7126;
 
@@ -71,6 +78,12 @@ async function getForecastLines(
 
   const data = await res.json();
   const daily = data.daily;
+
+  // A 200 is not proof the body is what we expect, so check before reading
+  // through it. The planner can still build a trip without a forecast.
+  if (!daily || !Array.isArray(daily.time)) {
+    return "No forecast available for these dates.";
+  }
 
   const lines: string[] = [];
   daily.time.forEach((date: string, index: number) => {
