@@ -53,7 +53,29 @@ export default async function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${display.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Runs before anything is painted, so a visitor who chose dark mode
+            last time does not get a flash of the light theme first. It also
+            follows the setting on their computer when they have never picked
+            one here. The same script hides the opening animation once it has
+            already played this visit. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+  var saved = localStorage.getItem("theme");
+  var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  if (saved === "dark" || (saved === null && prefersDark)) {
+    document.documentElement.classList.add("dark");
+  }
+  if (sessionStorage.getItem("splashSeen")) {
+    document.documentElement.classList.add("splash-seen");
+  }
+} catch (e) {}`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <SplashScreen />
         <Navbar user={user} />

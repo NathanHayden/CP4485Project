@@ -43,6 +43,15 @@ export default async function EventsPage() {
         )}
       </div>
 
+      {events.length === 0 && (
+        <p className="mt-8 rounded-2xl border border-line bg-surface-muted px-5 py-4 text-sm text-fog">
+          There are no events on the calendar yet.{" "}
+          {currentUserId
+            ? "Add the first one with the button above."
+            : "Log in to add the first one."}
+        </p>
+      )}
+
       <div className="mt-10">
         <EventsCalendar events={events} currentUserId={currentUserId} />
       </div>

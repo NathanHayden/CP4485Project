@@ -7,6 +7,17 @@ export default function SplashScreen() {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
+    // Note it has played, so the script in layout.tsx can hide it outright on
+    // the next page load this visit. Without this the animation replays every
+    // time the instructor refreshes or opens a link directly, which gets old
+    // fast. It is sessionStorage rather than localStorage so a genuinely new
+    // visit still gets the intro.
+    try {
+      window.sessionStorage.setItem("splashSeen", "1");
+    } catch {
+      // Storage being unavailable just means the intro plays again.
+    }
+
     const fadeTimer = setTimeout(() => setHidden(true), 2000);
     const removeTimer = setTimeout(() => setVisible(false), 2500);
     return () => {
@@ -21,7 +32,7 @@ export default function SplashScreen() {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col overflow-hidden transition-opacity duration-500 ${
+      className={`splash-screen fixed inset-0 z-[100] flex flex-col overflow-hidden transition-opacity duration-500 ${
         hidden ? "opacity-0" : "opacity-100"
       }`}
     >

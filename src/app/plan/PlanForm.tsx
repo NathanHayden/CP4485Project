@@ -86,7 +86,7 @@ export default function PlanForm() {
       <Card className="p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+            <p className="rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-sm font-medium text-danger-text">
               {error}
             </p>
           )}
@@ -189,7 +189,7 @@ export default function PlanForm() {
           <p className="mt-1 text-sm text-fog">
             This usually takes a few seconds.
           </p>
-          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-black/5">
+          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-hover">
             <div className="tricolour-bar animate-splash-bar h-full" />
           </div>
         </Card>
