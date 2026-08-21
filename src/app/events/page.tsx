@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import EventsCalendar from "./EventsCalendar";
+import EventsMapSection from "./EventsMapSection";
 import { getAllEvents } from "./queries";
 import Button from "@/components/Button";
 
@@ -44,6 +45,18 @@ export default async function EventsPage() {
 
       <div className="mt-10">
         <EventsCalendar events={events} currentUserId={currentUserId} />
+      </div>
+
+      <div className="mt-14">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">
+          Event map
+        </h2>
+        <p className="mt-2 text-sm text-fog">
+          Every event that has been pinned to a spot around town.
+        </p>
+        <div className="mt-6">
+          <EventsMapSection events={events} />
+        </div>
       </div>
     </div>
   );

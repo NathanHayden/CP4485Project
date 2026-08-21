@@ -2,6 +2,7 @@ import "server-only";
 import { ObjectId, type Document } from "mongodb";
 import { connectToDB } from "@/app/api/db";
 import type { TravelEvent, EventCategory } from "./types";
+import { toCoordinate, LATITUDE_LIMIT, LONGITUDE_LIMIT } from "@/lib/map";
 
 // Each event stores the id of the user who added it, but the display name and
 // profile picture live over in the "users" collection. $lookup lets Mongo join
@@ -41,6 +42,10 @@ function toTravelEvent(doc: Document): TravelEvent {
     submittedBy: text(doc.submittedBy),
     userId: doc.userId ? doc.userId.toString() : "",
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : "",
+    // Missing on every event created before the map feature, which is
+    // exactly why toCoordinate returns null instead of throwing.
+    latitude: toCoordinate(doc.latitude, LATITUDE_LIMIT),
+    longitude: toCoordinate(doc.longitude, LONGITUDE_LIMIT),
     submitter: doc.submitter
       ? {
           name: text(doc.submitter.name),
