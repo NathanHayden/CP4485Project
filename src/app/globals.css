@@ -74,6 +74,33 @@
   color: var(--color-ink);
 }
 
+/* ---- Leaflet maps -------------------------------------------------------
+   leaflet.css itself is imported inside the map components, not here. Only
+   the bits that fit the map into our own theme live in this file. */
+
+/* Leaflet numbers its own panes and controls up to a z-index of 1000, which
+   would float the zoom buttons over the sticky navbar as you scroll. Giving
+   the map container its own stacking context keeps all of that inside. */
+.leaflet-container {
+  z-index: 0;
+  font-family: var(--font-sans);
+  background: var(--color-surface-muted);
+}
+
+/* OpenStreetMap only serves light tiles, and a dark tile provider would mean
+   signing up for another service and key. Inverting just the tile layer
+   gives a usable dark map for free. Markers, popups and the zoom controls
+   sit in different panes, so they keep their real colours. */
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

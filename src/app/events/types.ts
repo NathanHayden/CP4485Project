@@ -20,6 +20,10 @@ export type TravelEvent = {
   userId: string;
   createdAt: string;
   submitter: EventSubmitter | null;
+  // Dropped by clicking the small map on the event form. Events added
+  // before the map existed have no coordinates, so both are null.
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export const EVENT_CATEGORIES = [

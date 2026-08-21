@@ -6,6 +6,12 @@ import { jwtVerify, type JWTPayload } from "jose";
 import { ObjectId } from "mongodb";
 import { connectToDB } from "@/app/api/db";
 import { validateEventInput } from "../../validateEvent";
+import {
+  readCoordinates,
+  toCoordinate,
+  LATITUDE_LIMIT,
+  LONGITUDE_LIMIT,
+} from "@/lib/map";
 import Card from "@/components/Card";
 import EventForm from "../../EventForm";
 
@@ -93,6 +99,10 @@ export default async function EditEventPage({
       redirect(`/events/${eventId}/edit?error=${encodeURIComponent(validationError)}`);
     }
 
+    // Always set both, even when they are null. That is what lets an
+    // organiser take a pin back off an event they had already pinned.
+    const { latitude, longitude } = readCoordinates(formData);
+
     const { db } = await connectToDB();
 
     // Scope the update by userId so a user can only edit their own event.
@@ -112,6 +122,8 @@ export default async function EditEventPage({
           startTime,
           endTime,
           url: formData.get("url"),
+          latitude,
+          longitude,
         },
       }
     );
@@ -152,6 +164,11 @@ export default async function EditEventPage({
             startTime: event.startTime ?? "",
             endTime: event.endTime ?? "",
             url: event.url ?? "",
+            // This page reads the raw document rather than going through
+            // toTravelEvent, so the same helper is used here to cope with
+            // events that have no coordinates yet.
+            latitude: toCoordinate(event.latitude, LATITUDE_LIMIT),
+            longitude: toCoordinate(event.longitude, LONGITUDE_LIMIT),
           }}
         />
       </Card>

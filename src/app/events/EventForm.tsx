@@ -5,6 +5,7 @@ import { EVENT_CATEGORIES } from "./types";
 import { validateEventInput, localTodayString } from "./validateEvent";
 import Field, { fieldInputClass } from "@/components/Field";
 import Button from "@/components/Button";
+import LocationPicker from "@/components/map/LocationPicker";
 
 type EventFormValues = {
   title?: string;
@@ -16,6 +17,8 @@ type EventFormValues = {
   startTime?: string;
   endTime?: string;
   url?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 type EventFormProps = {
@@ -139,6 +142,11 @@ export default function EventForm({
           placeholder="George Street, St. John's"
         />
       </div>
+
+      <LocationPicker
+        defaultLatitude={defaultValues.latitude ?? null}
+        defaultLongitude={defaultValues.longitude ?? null}
+      />
 
       <Field label="Details">
         <textarea

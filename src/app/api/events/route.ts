@@ -2,6 +2,7 @@ import { connectToDB } from "@/app/api/db";
 import { revalidatePath } from "next/cache";
 import { getAllEvents } from "@/app/events/queries";
 import { validateEventInput } from "@/app/events/validateEvent";
+import { readCoordinates } from "@/lib/map";
 import { cookies } from "next/headers";
 import { jwtVerify, type JWTPayload } from "jose";
 import { ObjectId } from "mongodb";
@@ -59,6 +60,10 @@ export async function POST(request: Request) {
   const submittedBy =
     (payload.name as string) || (payload.email as string) || "";
 
+  // Both are null when the organiser did not drop a pin, which is fine:
+  // the event simply will not appear on the map.
+  const { latitude, longitude } = readCoordinates(formData);
+
   const { db } = await connectToDB();
 
   await db.collection("events").insertOne({
@@ -73,6 +78,8 @@ export async function POST(request: Request) {
     url: formData.get("url"),
     submittedBy,
     userId: new ObjectId(payload.userId as string),
+    latitude,
+    longitude,
     createdAt: new Date(),
   });
 

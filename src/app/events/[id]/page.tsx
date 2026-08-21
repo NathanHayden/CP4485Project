@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { getEventById } from "../queries";
+import MarkersMap from "@/components/map/MarkersMap";
+import { PIN_ZOOM } from "@/lib/map";
 import Card from "@/components/Card";
 import Button from "@/components/Button";
 
@@ -123,6 +125,29 @@ export default async function EventDetailPage({
               </div>
             )}
           </dl>
+
+          {/* Checking both values keeps events added before the map existed
+              working, and it is also what tells TypeScript the numbers are
+              really numbers by the time the map reads them. */}
+          {event.latitude !== null && event.longitude !== null && (
+            <div className="mt-5 overflow-hidden rounded-xl border border-line">
+              <MarkersMap
+                markers={[
+                  {
+                    id: event._id,
+                    title: event.title,
+                    subtitle: event.location,
+                    latitude: event.latitude,
+                    longitude: event.longitude,
+                    href: "",
+                  },
+                ]}
+                center={[event.latitude, event.longitude]}
+                zoom={PIN_ZOOM}
+                height="16rem"
+              />
+            </div>
+          )}
 
           {event.description && (
             <p className="mt-5 border-t border-line pt-5 text-base leading-relaxed">
