@@ -2,12 +2,6 @@ import Link from "next/link";
 import Card from "@/components/Card";
 import type { TravelPlan, PlanActivity } from "./schema";
 
-const TIME_ICON: Record<string, string> = {
-  Morning: "🌅",
-  Afternoon: "☀️",
-  Evening: "🌙",
-};
-
 const TIME_ORDER: Record<string, number> = {
   Morning: 0,
   Afternoon: 1,
@@ -37,14 +31,12 @@ function longDate(date: string): string {
 }
 
 function Activity({ activity }: { activity: PlanActivity }) {
-  const icon = TIME_ICON[activity.timeOfDay] ? TIME_ICON[activity.timeOfDay] : "📍";
-
   return (
     <li className="rounded-xl border border-line bg-surface-muted p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wider text-fog">
-            {icon} {activity.timeOfDay}
+            {activity.timeOfDay}
           </p>
           <h4 className="mt-1 font-display text-lg font-extrabold text-ink">
             {activity.name}
@@ -98,7 +90,10 @@ export default function PlanResult({ plan }: { plan: TravelPlan }) {
           </h2>
           <p className="mt-3 text-sm text-nl-ink/80">{plan.overview}</p>
 
-          <p className="mt-4 rounded-xl bg-white/70 px-4 py-3 text-sm ring-1 ring-black/5">
+          {/* This box sits on a gradient that stays light in both themes, so
+              the text has to be told to stay dark. Without a colour of its
+              own it inherited the page colour and turned white on white. */}
+          <p className="mt-4 rounded-xl bg-white/70 px-4 py-3 text-sm text-nl-ink ring-1 ring-black/5">
             <span className="font-bold text-nl-green-700">Before you pack — </span>
             {plan.packingTip}
           </p>
