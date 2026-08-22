@@ -40,6 +40,9 @@ export default function EventForm({
 }: EventFormProps) {
   const today = localTodayString();
   const [clientError, setClientError] = useState<string | null>(null);
+  // Saving an event is a full page post, which leaves a moment where the
+  // button is still clickable and a second press would file it twice.
+  const [submitting, setSubmitting] = useState(false);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     const formData = new FormData(e.currentTarget);
@@ -57,7 +60,10 @@ export default function EventForm({
     if (validationError) {
       e.preventDefault();
       setClientError(validationError);
+      return;
     }
+
+    setSubmitting(true);
   }
 
   const shownError = clientError ? clientError : error;
@@ -167,8 +173,8 @@ export default function EventForm({
         placeholder="https://..."
       />
 
-      <Button type="submit" fullWidth>
-        {submitLabel}
+      <Button type="submit" fullWidth disabled={submitting}>
+        {submitting ? "Saving…" : submitLabel}
       </Button>
     </form>
   );

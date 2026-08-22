@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -184,6 +185,13 @@ export default function EventsCalendar({
               </p>
             )}
 
+            <Link
+              href={`/events/${selected._id}`}
+              className="mt-3 inline-block text-xs font-bold text-nl-green-700 hover:underline"
+            >
+              View full details →
+            </Link>
+
             {currentUserId && selected.userId === currentUserId && (
               <>
                 <div className="mt-4 flex gap-2">
@@ -197,7 +205,7 @@ export default function EventsCalendar({
                   </Button>
                 </div>
                 {deleteError && (
-                  <p className="mt-2 text-xs font-medium text-red-600">
+                  <p className="mt-2 text-xs font-medium text-danger-text">
                     {deleteError}
                   </p>
                 )}

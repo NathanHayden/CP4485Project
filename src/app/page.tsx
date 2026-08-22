@@ -4,10 +4,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { TravelEvent } from "./events/types";
+import Image from "next/image";
 import Card from "@/components/Card";
+import downtownAerial from "@/images/downtown-aerial.jpg";
+import georgeStreet from "@/images/george-street.jpg";
+import quidiVidi from "@/images/quidi-vidi.jpg";
+import cityscape from "@/images/cityscape.jpg";
 import MiniCalendar from "@/components/MiniCalendar";
-
-type Condition = "sunny" | "cloudy" | "rainy" | "snowy" | "windy" | "foggy";
+import WeatherGlyph from "@/components/WeatherGlyph";
+import { conditionFromLabel, conditionFromCode } from "@/lib/weatherIcons";
 
 type City = {
   name: string;
@@ -29,42 +34,63 @@ type ForecastDay = {
   code: number;
 };
 
-const CONDITION_ICON: Record<Condition, string> = {
-  sunny: "☀️",
-  cloudy: "☁️",
-  rainy: "🌧️",
-  snowy: "❄️",
-  windy: "💨",
-  foggy: "🌫️",
-};
-
-function conditionFromLabel(label: string): Condition {
-  const text = label.toLowerCase();
-  if (text.includes("fog")) return "foggy";
-  if (text.includes("rain") || text.includes("drizzle") || text.includes("shower")) return "rainy";
-  if (text.includes("snow") || text.includes("flurr")) return "snowy";
-  if (text.includes("wind") || text.includes("breez")) return "windy";
-  if (text.includes("sun") || text.includes("clear")) return "sunny";
-  return "cloudy";
-}
-
-function conditionFromCode(code: number): Condition {
-  if (code === 0 || code === 1) return "sunny";
-  if (code === 45 || code === 48) return "foggy";
-  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snowy";
-  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95) return "rainy";
-  return "cloudy";
-}
-
 function show(value: number | null, suffix: string): string {
   return value === null ? "--" : `${value}${suffix}`;
 }
+
+// Three places worth sending a visitor to, each linking somewhere useful in
+// the app rather than being decoration for its own sake.
+const DISCOVER = [
+  {
+    title: "George Street",
+    blurb: "Pubs, live music and most of the city's nightlife on one street.",
+    alt: "Bars along George Street in St. John's",
+    photo: georgeStreet,
+    href: "/events",
+  },
+  {
+    title: "Quidi Vidi",
+    blurb: "A tiny fishing village tucked inside the city, right on the water.",
+    alt: "Quidi Vidi village and its harbour",
+    photo: quidiVidi,
+    href: "/plan",
+  },
+  {
+    title: "Around the city",
+    blurb: "Harbour views, coloured houses and the hills above the Narrows.",
+    alt: "A view across St. John's",
+    photo: cityscape,
+    href: "/plan",
+  },
+];
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center gap-2">
       <span className="h-5 w-1 rounded-full bg-nl-pink-600" />
       <h2 className="font-display text-xl font-extrabold">{children}</h2>
+    </div>
+  );
+}
+
+function QuickFact({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-4">
+      <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
+        {label}
+      </span>
+      <p className="mt-1.5 font-display text-2xl font-extrabold leading-none text-ink">
+        {value}
+      </p>
+      {note ? <p className="mt-1 truncate text-xs text-fog">{note}</p> : null}
     </div>
   );
 }
@@ -117,8 +143,70 @@ export default function Home() {
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 5);
 
+  // Reads as "Next on Friday" rather than repeating the raw date.
+  let nextEventText = "Nothing booked yet";
+  if (upcoming.length > 0) {
+    const nextDay = new Date(`${upcoming[0].date}T00:00:00`);
+    nextEventText = `Next ${nextDay.toLocaleDateString("en-CA", {
+      weekday: "long",
+    })}`;
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      {/* The photo is imported rather than linked by name, which lets Next
+          work out its size, serve a smaller copy to phones, and show a blurred
+          version while the real one downloads. */}
+      <section className="relative mb-6 overflow-hidden rounded-3xl">
+        <Image
+          src={downtownAerial}
+          alt="Downtown St. John's seen from above"
+          placeholder="blur"
+          priority
+          className="h-52 w-full object-cover sm:h-72"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-nl-pink-100">
+            Newfoundland and Labrador
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
+            St. John&apos;s Travel Advisory
+          </h1>
+          <p className="mt-2 max-w-xl text-sm text-white/85 sm:text-base">
+            Today&apos;s weather, what&apos;s on around town, and a plan built
+            around both.
+          </p>
+        </div>
+        <div className="tricolour-bar absolute inset-x-0 bottom-0 h-1.5" />
+      </section>
+
+      {/* A quick read on the city before the detail below. Every number here
+          comes from data the page has already fetched, so it costs nothing
+          extra and it fills what used to be a gap under the banner. */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <QuickFact
+          label="Right now"
+          value={city ? show(city.temp, "°C") : "--"}
+          note={city ? city.label : "Loading…"}
+        />
+        <QuickFact
+          label="Feels like"
+          value={city ? show(city.feelsLike, "°C") : "--"}
+          note={city && city.humidity !== null ? `${city.humidity}% humidity` : ""}
+        />
+        <QuickFact
+          label="Upcoming events"
+          value={String(upcoming.length)}
+          note={nextEventText}
+        />
+        <QuickFact
+          label="Today's high"
+          value={forecast.length > 0 ? `${forecast[0].high}°C` : "--"}
+          note={forecast.length > 0 ? `Low ${forecast[0].low}°C` : ""}
+        />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <section>
@@ -138,10 +226,14 @@ export default function Home() {
                       {city ? show(city.temp, "°") : "--°"}
                     </span>
                     <div className="pb-1">
-                      <p className="text-lg font-semibold text-nl-pink-700">
-                        {city
-                          ? `${CONDITION_ICON[conditionFromLabel(city.label)]} ${city.label}`
-                          : "Loading…"}
+                      <p className="flex items-center gap-1.5 text-lg font-semibold text-nl-pink-700">
+                        {city && (
+                          <WeatherGlyph
+                            condition={conditionFromLabel(city.label)}
+                            className="h-5 w-5"
+                          />
+                        )}
+                        {city ? city.label : "Loading…"}
                       </p>
                       {city && city.feelsLike !== null && (
                         <p className="text-sm text-nl-fog">
@@ -161,9 +253,12 @@ export default function Home() {
                     label="Humidity"
                     value={city ? show(city.humidity, "%") : "--"}
                   />
+                  {/* This used to be "Vis.", but Environment Canada does not
+                      send visibility in this feed, so the box was blank every
+                      time. "Feels like" is a reading we actually receive. */}
                   <WeatherStat
-                    label="Vis."
-                    value={city ? show(city.visibility, " km") : "--"}
+                    label="Feels like"
+                    value={city ? show(city.feelsLike, "°") : "--"}
                   />
                 </div>
               </div>
@@ -185,9 +280,10 @@ export default function Home() {
                       <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
                         {date.toLocaleDateString("en-CA", { weekday: "short" })}
                       </span>
-                      <span className="text-lg">
-                        {CONDITION_ICON[conditionFromCode(day.code)]}
-                      </span>
+                      <WeatherGlyph
+                        condition={conditionFromCode(day.code)}
+                        className="h-5 w-5 text-nl-green-700"
+                      />
                       <span className="text-sm font-bold">{day.high}°</span>
                       <span className="text-xs text-fog">{day.low}°</span>
                     </Card>
@@ -203,10 +299,40 @@ export default function Home() {
           >
             Full weather →
           </Link>
+
+        <section>
+          <SectionHeading>Discover St. John&apos;s</SectionHeading>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            {DISCOVER.map((place) => (
+              <Link key={place.title} href={place.href} className="group block">
+                <Card className="h-full overflow-hidden">
+                  <div className="relative h-40 w-full overflow-hidden">
+                    <Image
+                      src={place.photo}
+                      alt={place.alt}
+                      placeholder="blur"
+                      className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-display text-lg font-extrabold">
+                      {place.title}
+                    </h3>
+                    <p className="mt-1 text-sm text-fog">{place.blurb}</p>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
         </div>
 
         <div className="space-y-6">
-          <Link href="/plan" className="block">
+          <section>
+            {/* The main column starts with a heading, so this one needs one
+                too or the two columns start at different heights. */}
+            <SectionHeading>Plan your trip</SectionHeading>
+            <Link href="/plan" className="mt-3 block">
             <Card className="overflow-hidden transition-shadow hover:shadow-md">
               <div className="bg-gradient-to-br from-nl-green-100 via-white to-nl-pink-100 p-5">
                 <p className="text-xs font-semibold uppercase tracking-widest text-nl-green-700">
@@ -225,7 +351,8 @@ export default function Home() {
               </div>
               <div className="tricolour-bar h-1.5 w-full" />
             </Card>
-          </Link>
+            </Link>
+          </section>
 
           <section>
             <div className="flex items-center justify-between">
@@ -252,24 +379,26 @@ export default function Home() {
                 const day = new Date(`${event.date}T00:00:00`);
                 return (
                   <li key={event._id}>
-                    <Card className="flex items-center gap-3 p-3">
-                      <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-nl-green-50 text-nl-green-700">
-                        <span className="text-[0.55rem] font-bold uppercase">
-                          {day.toLocaleDateString("en-CA", { month: "short" })}
-                        </span>
-                        <span className="text-base font-extrabold leading-none">
-                          {day.getDate()}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">
-                          {event.title}
-                        </p>
-                        <p className="truncate text-xs text-fog">
-                          {event.location}
-                        </p>
-                      </div>
-                    </Card>
+                    <Link href={`/events/${event._id}`} className="block">
+                      <Card className="flex items-center gap-3 p-3 transition-shadow hover:shadow-md">
+                        <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-nl-green-50 text-nl-green-700">
+                          <span className="text-[0.55rem] font-bold uppercase">
+                            {day.toLocaleDateString("en-CA", { month: "short" })}
+                          </span>
+                          <span className="text-base font-extrabold leading-none">
+                            {day.getDate()}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">
+                            {event.title}
+                          </p>
+                          <p className="truncate text-xs text-fog">
+                            {event.location}
+                          </p>
+                        </div>
+                      </Card>
+                    </Link>
                   </li>
                 );
               })}
@@ -277,6 +406,8 @@ export default function Home() {
           </section>
         </div>
       </div>
+
+
     </div>
   );
 }

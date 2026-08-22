@@ -74,6 +74,13 @@
   color: var(--color-ink);
 }
 
+/* Set by the script in layout.tsx when the opening animation has already
+   played this visit. Hiding it in CSS rather than in React means there is no
+   flash of it on the way to being removed. */
+.splash-seen .splash-screen {
+  display: none;
+}
+
 /* ---- Leaflet maps -------------------------------------------------------
    leaflet.css itself is imported inside the map components, not here. Only
    the bits that fit the map into our own theme live in this file. */

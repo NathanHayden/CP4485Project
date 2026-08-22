@@ -1,129 +1,636 @@
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import TricolourBar from "@/components/TricolourBar";
+import Link from "next/link";
+import skyline from "@/images/skyline-wide.jpg";
+import { ST_JOHNS_CENTER } from "@/lib/map";
+import WeatherGlyph from "@/components/WeatherGlyph";
+import { conditionFromLabel, conditionFromCode } from "@/lib/weatherIcons";
+
+// Environment Canada wraps most readings as { value: { en: "12" } } and most
+// words as { en: "Partly Cloudy" }. This pulls the English value out of either
+// shape and returns "" when the field is not in the reply at all. Several
+// readings genuinely come and go with the season, so a missing one has to be
+// normal rather than a crash.
+function en(node: unknown): string {
+  if (!node || typeof node !== "object") {
+    return "";
+  }
+
+  const wrapped = node as {
+    value?: { en?: string | number };
+    en?: string | number;
+  };
+
+  if (wrapped.value && wrapped.value.en !== undefined && wrapped.value.en !== null) {
+    return String(wrapped.value.en);
+  }
+  if (wrapped.en !== undefined && wrapped.en !== null) {
+    return String(wrapped.en);
+  }
+  return "";
+}
+
+type Conditions = {
+  cityName: string;
+  temp: string;
+  condition: string;
+  feelsLike: string;
+  humidity: string;
+  windSpeed: string;
+  windDirection: string;
+  windGust: string;
+  pressure: string;
+  pressureTendency: string;
+  dewpoint: string;
+  station: string;
+  observedAt: string;
+  sunrise: string;
+  sunset: string;
+  normals: string;
+  periods: ForecastPeriod[];
+  warnings: string[];
+};
+
+// One of Environment Canada's written forecast periods, e.g. "Tonight" or
+// "Friday". They give far more detail than a high and a low, which is the
+// whole point of showing them.
+type ForecastPeriod = {
+  name: string;
+  summary: string;
+  temperature: string;
+  wind: string;
+  visibility: string;
+};
+
+type HourlyEntry = {
+  at: number;
+  temp: number;
+  rainChance: number | null;
+  code: number;
+  wind: number;
+};
+
+type ForecastDay = {
+  date: string;
+  high: number;
+  low: number;
+  code: number;
+  rainChance: number | null;
+  uvIndex: number | null;
+};
+
+function celsiusToFahrenheit(celsius: number): number {
+  return Math.round((celsius * 9) / 5 + 32);
+}
+
+// Turns one of Environment Canada's timestamps into a plain local clock time.
+function clockTime(isoText: string): string {
+  if (!isoText) {
+    return "";
+  }
+
+  const when = new Date(isoText);
+  if (Number.isNaN(when.getTime())) {
+    return "";
+  }
+
+  return when.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
+}
+
+// The forecast is for St. John's, so the hours are labelled in St. John's
+// time even when the person reading the page is somewhere else.
+function hourLabel(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toLocaleTimeString("en-CA", {
+    hour: "numeric",
+    timeZone: "America/St_Johns",
+  });
+}
+
+function StatCard({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-4 transition-shadow hover:shadow-md">
+      <div className="flex items-center gap-2">
+        <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
+          {label}
+        </span>
+      </div>
+      <p className="mt-2 font-display text-2xl font-extrabold leading-none text-ink">
+        {value}
+      </p>
+      {note && <p className="mt-1 text-xs text-fog">{note}</p>}
+    </div>
+  );
+}
 
 export default function Weather() {
-  const [cityName, setCityName] = useState("");
-  const [temp, setTemp] = useState("");
-  const [condition, setCondition] = useState("");
-  const [humidity, setHumidity] = useState("");
-  const [wind, setWind] = useState("");
-  const [icon, setIcon] = useState("");
-  const [feelsLike, setFeelsLike] = useState("");
+  const [conditions, setConditions] = useState<Conditions | null>(null);
+  const [forecast, setForecast] = useState<ForecastDay[]>([]);
+  const [hourly, setHourly] = useState<HourlyEntry[]>([]);
   const [isFahrenheit, setIsFahrenheit] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(
-      "/api/weather"
-    )
-      .then((response) => response.json())
-      .then((data) => {
+    fetch("/api/weather")
+      .then(async (response) => {
+        const data = await response.json();
+
+        // The route answers with an { error } message when Environment Canada
+        // is unreachable, so check that before reading the conditions.
+        if (!response.ok || !data.properties) {
+          throw new Error(
+            data.error ? data.error : "The weather service is unavailable."
+          );
+        }
+
         const props = data.properties;
         const cc = props.currentConditions;
+        const riseSet = props.riseSet ? props.riseSet : {};
+        const wind = cc.wind ? cc.wind : {};
 
-        setCityName(props.name.en);
-        setTemp(cc.temperature.value.en);
-        setCondition(cc.condition.en);
-        setHumidity(cc.relativeHumidity.value.en);
-        setWind(cc.wind.speed.value.en);
-        setIcon(cc.iconCode.url);
+        // Humidex in summer, wind chill in winter, and neither on a mild day,
+        // when "feels like" is simply the temperature.
+        let feelsLike = en(cc.temperature);
+        if (en(cc.humidex)) {
+          feelsLike = en(cc.humidex);
+        } else if (en(cc.windChill)) {
+          feelsLike = en(cc.windChill);
+        }
 
-        const calculatedFeels = cc.humidex
-          ? cc.humidex.value.en
-          : cc.windChill
-          ? cc.windChill.value.en
-          : cc.temperature.value.en;
-        setFeelsLike(calculatedFeels);
+        // Environment Canada writes a paragraph for each upcoming period.
+        // Pull out the parts worth showing and skip anything it left blank.
+        const rawPeriods = props.forecastGroup && props.forecastGroup.forecasts
+          ? props.forecastGroup.forecasts
+          : [];
+        const periods: ForecastPeriod[] = [];
+        for (const entry of rawPeriods) {
+          const name = entry.period ? en(entry.period.textForecastName) : "";
+          if (!name) {
+            continue;
+          }
+          periods.push({
+            name,
+            summary: entry.abbreviatedForecast
+              ? en(entry.abbreviatedForecast.textSummary)
+              : "",
+            temperature: entry.temperatures
+              ? en(entry.temperatures.textSummary)
+              : "",
+            wind: entry.winds ? en(entry.winds.textSummary) : "",
+            visibility: entry.visibility
+              ? en(entry.visibility.textSummary)
+              : "",
+          });
+        }
+
+        // Environment Canada sends an empty list when nothing is in effect,
+        // which is the normal case, so the exact shape of a real warning could
+        // not be checked against live data. Read it loosely and show nothing
+        // rather than guess wrong: several field names are tried and anything
+        // unrecognised is skipped.
+        const warnings: string[] = [];
+        const rawWarnings = Array.isArray(props.warnings) ? props.warnings : [];
+        for (const entry of rawWarnings) {
+          if (!entry || typeof entry !== "object") {
+            continue;
+          }
+          const text =
+            en(entry.eventType) ||
+            en(entry.type) ||
+            en(entry.description) ||
+            en(entry.priority) ||
+            en(entry.textSummary);
+          if (text) {
+            warnings.push(text);
+          }
+        }
+
+        setConditions({
+          cityName: en(props.name),
+          temp: en(cc.temperature),
+          condition: en(cc.condition),
+          feelsLike,
+          humidity: en(cc.relativeHumidity),
+          windSpeed: en(wind.speed),
+          windDirection: en(wind.direction),
+          windGust: en(wind.gust),
+          pressure: en(cc.pressure),
+          pressureTendency:
+            cc.pressure && cc.pressure.tendency ? en(cc.pressure.tendency) : "",
+          dewpoint: en(cc.dewpoint),
+          station: cc.station ? en(cc.station.code).toUpperCase() : "",
+          observedAt: clockTime(en(cc.timestamp)),
+          sunrise: clockTime(en(riseSet.sunrise)),
+          sunset: clockTime(en(riseSet.sunset)),
+          normals:
+            props.forecastGroup && props.forecastGroup.regionalNormals
+              ? en(props.forecastGroup.regionalNormals.textSummary)
+              : "",
+          periods,
+          warnings,
+        });
       })
-      .catch((error) => console.error("Error fetching weather:", error))
+      .catch((caught) => {
+        console.error("Error fetching weather:", caught);
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "The weather service is unavailable."
+        );
+      })
       .finally(() => setLoading(false));
+
+    // The week ahead comes from a different service, and it is not essential,
+    // so a failure here only means the forecast strip stays empty.
+    fetch(
+      `/api/weather/forecast?lat=${ST_JOHNS_CENTER.latitude}&lon=${ST_JOHNS_CENTER.longitude}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setForecast(data);
+        }
+      })
+      .catch((caught) => console.error("Failed to load forecast:", caught));
+
+    // Also optional. An empty hourly list simply hides that strip.
+    fetch("/api/weather/hourly")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setHourly(data);
+        }
+      })
+      .catch((caught) =>
+        console.error("Failed to load the hourly forecast:", caught)
+      );
   }, []);
 
-  return (
-    <div className="aurora min-h-[70vh]">
-      <div className="mx-auto flex max-w-6xl flex-col items-center px-4 py-14 sm:px-6 sm:py-20">
-        <div className="mb-8 text-center">
-          <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-            {cityName ? `${cityName} Weather` : "St. John's Weather"}
-          </h1>
-        </div>
+  // Every tile is built here rather than written out in the markup, so a
+  // reading Environment Canada did not send simply produces no tile. The page
+  // used to show a "Visibility" box that was blank every single time, because
+  // that reading is not in this feed at all.
+  const stats: { label: string; value: string; note?: string }[] = [];
 
-        <div className="relative w-full max-w-md animate-float-up overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-xl">
-          <TricolourBar className="h-1.5 w-full" />
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setIsFahrenheit(f => !f)}
-                className="inline-flex items-center gap-2 rounded-full border border-nl-pink-200 bg-nl-pink-50 px-2 py-1.5 text-xs font-bold text-nl-pink-700 transition hover:bg-nl-pink-100"
-              >
-                {isFahrenheit ? "Switch to Metric (°C)" : "Switch to Imperial (°F)"}
-              </button>
-              <span className="text-md font-semibold uppercase tracking-wider text-fog">
-                St. John&apos;s, NL
-              </span>
+  if (conditions) {
+    if (conditions.humidity) {
+      stats.push({
+        label: "Humidity",
+        value: `${conditions.humidity}%`,
+      });
+    }
+
+    if (conditions.windSpeed) {
+      stats.push({
+        label: "Wind",
+        value: isFahrenheit
+          ? `${Math.round(parseFloat(conditions.windSpeed) * 0.621)} mph`
+          : `${Math.round(parseFloat(conditions.windSpeed))} km/h`,
+        note: conditions.windDirection
+          ? `Out of the ${conditions.windDirection}`
+          : undefined,
+      });
+    }
+
+    if (conditions.windGust) {
+      stats.push({
+        label: "Gusting to",
+        value: isFahrenheit
+          ? `${Math.round(parseFloat(conditions.windGust) * 0.621)} mph`
+          : `${Math.round(parseFloat(conditions.windGust))} km/h`,
+      });
+    }
+
+    if (conditions.dewpoint) {
+      const dew = parseFloat(conditions.dewpoint);
+      stats.push({
+        label: "Dew point",
+        value: isFahrenheit
+          ? `${celsiusToFahrenheit(dew)}°F`
+          : `${Math.round(dew)}°C`,
+      });
+    }
+
+    if (conditions.pressure) {
+      const kilopascals = parseFloat(conditions.pressure);
+      stats.push({
+        label: "Pressure",
+        value: isFahrenheit
+          ? `${(kilopascals * 0.2953).toFixed(2)} inHg`
+          : `${kilopascals.toFixed(1)} kPa`,
+        note: conditions.pressureTendency
+          ? `and ${conditions.pressureTendency}`
+          : undefined,
+      });
+    }
+
+    if (conditions.sunrise) {
+      stats.push({ label: "Sunrise", value: conditions.sunrise });
+    }
+
+    if (conditions.sunset) {
+      stats.push({ label: "Sunset", value: conditions.sunset });
+    }
+  }
+
+  // Today's rain chance rounds the grid out and is the one thing a visitor
+  // deciding what to do actually wants to know. It comes from the forecast
+  // request rather than the current conditions, so it is added separately.
+  const todayForecast = forecast.length > 0 ? forecast[0] : null;
+  if (todayForecast && todayForecast.rainChance !== null) {
+    stats.push({
+      label: "Rain chance today",
+      value: `${todayForecast.rainChance}%`,
+      note:
+        todayForecast.uvIndex !== null
+          ? `UV index ${Math.round(todayForecast.uvIndex)}`
+          : undefined,
+    });
+  }
+
+  const temperature = conditions ? parseFloat(conditions.temp) : 0;
+  const feels = conditions ? parseFloat(conditions.feelsLike) : 0;
+  const bigTemp = isFahrenheit
+    ? celsiusToFahrenheit(temperature)
+    : Math.round(temperature);
+  const feelsTemp = isFahrenheit ? celsiusToFahrenheit(feels) : Math.round(feels);
+  const unit = isFahrenheit ? "°F" : "°C";
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      {/* Photo banner with the reading laid over it, so the page opens with
+          something to look at rather than a lone card on an empty screen. */}
+      <section className="relative overflow-hidden rounded-3xl">
+        <Image
+          src={skyline}
+          alt="St. John's"
+          placeholder="blur"
+          priority
+          className="h-72 w-full object-cover sm:h-80"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
+
+        <div className="absolute inset-0 flex flex-col justify-between p-6 sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-nl-pink-100">
+                Right now in
+              </p>
+              <h1 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+                {conditions && conditions.cityName
+                  ? conditions.cityName
+                  : "St. John's"}
+              </h1>
             </div>
 
-                {loading && (
-                  <p className="mt-6 text-center text-sm text-fog">
-                    Loading current conditions…
+            <button
+              type="button"
+              onClick={() => setIsFahrenheit((f) => !f)}
+              className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm transition hover:bg-white/25"
+            >
+              {isFahrenheit ? "Show °C" : "Show °F"}
+            </button>
+          </div>
+
+          {loading && (
+            <p className="text-sm font-medium text-white/80">
+              Loading current conditions…
+            </p>
+          )}
+
+          {conditions && (
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+              <div className="flex items-center gap-4">
+                <WeatherGlyph
+                  condition={conditionFromLabel(conditions.condition)}
+                  className="h-14 w-14 text-white sm:h-16 sm:w-16"
+                />
+                <div>
+                  <p className="font-display text-6xl font-extrabold leading-none text-white sm:text-7xl">
+                    {bigTemp}
+                    <span className="align-top text-2xl text-white/70">
+                      {unit}
+                    </span>
                   </p>
-                )}
-
-                {icon && (
-                  <div className="mt-6 flex items-center justify-center gap-5">
-                    <Image
-                      src={icon}
-                      alt={condition}
-                      width={80}
-                      height={68}
-                      unoptimized
-                      className="h-17 w-20"
-                    />
-                    <div>
-                      <h2 className="font-display text-5xl font-extrabold leading-none tracking-tight">
-                        {isFahrenheit ? Math.round(parseInt(temp) * 9/5 + 32) : parseInt(temp)}
-                        <span className="align-top text-2xl text-fog"> {isFahrenheit ? "°F" : "°C"}</span>
-                      </h2>
-                      <p className="mt-1 text-sm font-medium text-fog">
-                        {condition}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {feelsLike && (
-                  <div className="mt-6 rounded-2xl bg-gradient-to-r from-nl-green-50 to-nl-pink-50 p-3.5 text-center text-sm text-nl-ink">
-                    Feels like{" "}
-                    <span className="font-extrabold text-nl-green-700">
-                      {isFahrenheit ? Math.round(parseInt(feelsLike) * 9/5 + 32) : parseInt(feelsLike)}°{isFahrenheit ? "F" : "C"}
-                    </span>{" "}
-                  </div>
-                )}
-
-                <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex flex-col gap-1 rounded-2xl border border-line bg-surface-muted p-4">
-                    <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
-                      Humidity
-                    </span>
-                    <span className="text-lg font-extrabold text-ink">
-                      {humidity}%
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1 rounded-2xl border border-line bg-surface-muted p-4">
-                    <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
-                      Wind Speed
-                    </span>
-                    <span className="text-lg font-extrabold text-ink">
-                      {isFahrenheit ? Math.round(parseFloat(wind) * 0.621) : parseInt(wind)} {isFahrenheit ? "mph" : "km/h"}
-                    </span>
-                  </div>
+                  <p className="mt-1 text-base font-semibold text-white/90">
+                    {conditions.condition}
+                  </p>
                 </div>
               </div>
-          </div>
+
+              {conditions.feelsLike && (
+                <p className="pb-1 text-sm font-medium text-white/80">
+                  Feels like{" "}
+                  <span className="font-extrabold text-white">
+                    {feelsTemp}
+                    {unit}
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
         </div>
+
+        <div className="tricolour-bar absolute inset-x-0 bottom-0 h-1.5" />
+      </section>
+
+      {conditions && conditions.warnings.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-danger-border bg-danger-bg px-5 py-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-danger-text">
+            Weather warning in effect
+          </p>
+          <ul className="mt-1 space-y-1">
+            {conditions.warnings.map((warning) => (
+              <li key={warning} className="text-sm font-medium text-danger-text">
+                {warning}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-6 rounded-2xl border border-danger-border bg-danger-bg px-4 py-3 text-center text-sm font-medium text-danger-text">
+          {error} Please try again in a few minutes.
+        </div>
+      )}
+
+      {stats.length > 0 && (
+        <section className="mt-6">
+          <div className="flex items-center gap-2">
+            <span className="h-5 w-1 rounded-full bg-nl-pink-600" />
+            <h2 className="font-display text-xl font-extrabold">
+              Conditions in detail
+            </h2>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {stats.map((stat) => (
+              <StatCard key={stat.label} {...stat} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {hourly.length > 0 && (
+        <section className="mt-8">
+          <div className="flex items-center gap-2">
+            <span className="h-5 w-1 rounded-full bg-nl-pink-600" />
+            <h2 className="font-display text-xl font-extrabold">
+              Next 24 hours
+            </h2>
+          </div>
+          {/* Scrolls sideways rather than wrapping, so a full day fits on a
+              phone without turning into six rows of boxes. */}
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+            {hourly.map((hour) => (
+              <div
+                key={hour.at}
+                className="flex w-20 shrink-0 flex-col items-center gap-1 rounded-2xl border border-line bg-surface p-3 text-center"
+              >
+                <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
+                  {hourLabel(hour.at)}
+                </span>
+                <WeatherGlyph
+                  condition={conditionFromCode(hour.code)}
+                  className="h-5 w-5 text-nl-green-700"
+                />
+                <span className="text-sm font-extrabold text-ink">
+                  {isFahrenheit ? celsiusToFahrenheit(hour.temp) : hour.temp}°
+                </span>
+                {hour.rainChance !== null && (
+                  <span className="text-[0.65rem] text-fog">
+                    {hour.rainChance}%
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {forecast.length > 0 && (
+        <section className="mt-8">
+          <div className="flex items-center gap-2">
+            <span className="h-5 w-1 rounded-full bg-nl-pink-600" />
+            <h2 className="font-display text-xl font-extrabold">
+              The week ahead
+            </h2>
+          </div>
+          <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-7">
+            {forecast.map((day) => {
+              const when = new Date(`${day.date}T00:00:00`);
+              return (
+                <div
+                  key={day.date}
+                  className="flex flex-col items-center gap-1 rounded-2xl border border-line bg-surface p-3 text-center"
+                >
+                  <span className="text-[0.65rem] font-bold uppercase tracking-wider text-fog">
+                    {when.toLocaleDateString("en-CA", { weekday: "short" })}
+                  </span>
+                  <WeatherGlyph
+                    condition={conditionFromCode(day.code)}
+                    className="h-6 w-6 text-nl-green-700"
+                  />
+                  <span className="text-sm font-extrabold text-ink">
+                    {isFahrenheit ? celsiusToFahrenheit(day.high) : day.high}°
+                  </span>
+                  <span className="text-xs text-fog">
+                    {isFahrenheit ? celsiusToFahrenheit(day.low) : day.low}°
+                  </span>
+                  {day.rainChance !== null && (
+                    <span className="mt-1 border-t border-line pt-1 text-[0.65rem] text-fog">
+                      {day.rainChance}% rain
+                    </span>
+                  )}
+                  {day.uvIndex !== null && (
+                    <span className="text-[0.65rem] text-fog">
+                      UV {Math.round(day.uvIndex)}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {conditions && conditions.periods.length > 0 && (
+        <section className="mt-8">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="h-5 w-1 rounded-full bg-nl-pink-600" />
+              <h2 className="font-display text-xl font-extrabold">
+                Detailed forecast
+              </h2>
+            </div>
+            {conditions.normals && (
+              <p className="text-xs text-fog">
+                Normal for this time of year: {conditions.normals}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {conditions.periods.map((period) => (
+              <div
+                key={period.name}
+                className="rounded-2xl border border-line bg-surface p-4"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="font-display text-base font-extrabold text-ink">
+                    {period.name}
+                  </h3>
+                  {period.temperature && (
+                    <span className="shrink-0 text-sm font-bold text-nl-green-700">
+                      {period.temperature}
+                    </span>
+                  )}
+                </div>
+
+                {period.summary && (
+                  <p className="mt-1.5 text-sm text-ink/80">{period.summary}</p>
+                )}
+
+                {/* Wind and visibility are only written for some periods, so
+                    they appear when Environment Canada has something to say. */}
+                {(period.wind || period.visibility) && (
+                  <p className="mt-2 border-t border-line pt-2 text-xs text-fog">
+                    {[period.wind, period.visibility].filter(Boolean).join(" ")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted px-5 py-4">
+        <p className="text-sm text-fog">
+          Readings from Environment Canada
+          {conditions && conditions.station
+            ? `, station ${conditions.station}`
+            : ""}
+          {conditions && conditions.observedAt
+            ? `, taken at ${conditions.observedAt}`
+            : ""}
+          . The week ahead comes from Open-Meteo.
+        </p>
+        <Link
+          href="/plan"
+          className="shrink-0 text-sm font-bold text-nl-green-700 hover:underline"
+        >
+          Plan a trip around this →
+        </Link>
       </div>
+    </div>
   );
 }
