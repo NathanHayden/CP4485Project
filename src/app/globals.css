@@ -51,6 +51,13 @@
 :root {
   --background: var(--color-canvas);
   --foreground: var(--color-ink);
+
+  /* Tells the browser which theme its own built-in controls should use. The
+     list a <select> drops open is drawn by the operating system, not by us,
+     so no amount of our styling reaches it. Without this it stays white with
+     pale text in dark mode, which is unreadable. It fixes the date pickers
+     and the scrollbars at the same time. */
+  color-scheme: light;
 }
 
 .dark {
@@ -68,6 +75,15 @@
 
   --background: var(--color-canvas);
   --foreground: var(--color-ink);
+
+  color-scheme: dark;
+}
+
+/* Belt and braces for the drop-down list. Most browsers handle it from
+   color-scheme above, but a few still need the options named directly. */
+.dark select option {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
 }
 
 .fc {
