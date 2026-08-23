@@ -133,7 +133,7 @@ export default async function EditEventPage({
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-14 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
       <Link
         href="/events"
         className="text-sm font-semibold text-fog hover:text-nl-green-700"

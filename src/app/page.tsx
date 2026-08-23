@@ -158,15 +158,19 @@ export default function Home() {
           work out its size, serve a smaller copy to phones, and show a blurred
           version while the real one downloads. */}
       <section className="relative mb-6 overflow-hidden rounded-3xl">
+        {/* The photo sits behind and stretches to whatever height the words
+            need. It used to be a fixed height with the words floating on top,
+            which meant that on a narrow screen, where the heading wraps onto
+            three lines, the bottom of it was simply cut off. */}
         <Image
           src={downtownAerial}
           alt="Downtown St. John's seen from above"
           placeholder="blur"
           priority
-          className="h-52 w-full object-cover sm:h-72"
+          className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+        <div className="relative flex min-h-[13rem] flex-col justify-end p-6 sm:min-h-[18rem] sm:p-8">
           <p className="text-xs font-bold uppercase tracking-widest text-nl-pink-100">
             Newfoundland and Labrador
           </p>

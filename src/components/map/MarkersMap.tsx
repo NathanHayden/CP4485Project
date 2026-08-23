@@ -19,18 +19,44 @@ export default function MarkersMap({
   center,
   zoom,
   height = "26rem",
+  heightClass,
+  onMarkerClick,
 }: {
   markers: MapMarker[];
   center: [number, number];
   zoom: number;
   height?: string;
+  // The events page needs the map to fill whatever room is left beside the
+  // calendar, and a height written in a style attribute cannot say "whatever
+  // is left". When a class is given it is used instead of the style, because
+  // a style would win over the class and we would be back where we started.
+  heightClass?: string;
+  onMarkerClick?: (id: string) => void;
 }) {
   // The height is set out here so the "Loading map…" placeholder takes up the
   // same room the map will, and so the map's own 100% has something to
   // measure against.
+  if (heightClass) {
+    return (
+      <div className={`w-full ${heightClass}`}>
+        <MarkersMapInner
+          markers={markers}
+          center={center}
+          zoom={zoom}
+          onMarkerClick={onMarkerClick}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ height }} className="w-full">
-      <MarkersMapInner markers={markers} center={center} zoom={zoom} />
+      <MarkersMapInner
+        markers={markers}
+        center={center}
+        zoom={zoom}
+        onMarkerClick={onMarkerClick}
+      />
     </div>
   );
 }

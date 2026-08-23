@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import TricolourBar from "@/components/TricolourBar";
+import UserMenu, { type SessionUser } from "@/components/UserMenu";
 import { logout } from "@/app/auth/actions";
 
 const links = [
@@ -12,12 +13,6 @@ const links = [
   { href: "/events", label: "Events" },
   { href: "/plan", label: "Plan my visit" },
 ];
-
-type SessionUser = {
-  name?: string;
-  email?: string;
-  picture?: string;
-};
 
 export default function Navbar({ user }: { user: SessionUser | null }) {
   const [open, setOpen] = useState(false);
@@ -49,30 +44,7 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
           ))}
           <li className="flex items-center gap-3">
             {user ? (
-              <>
-                {user.picture ? (
-                  <Image
-                    src={user.picture}
-                    alt={user.name ? user.name : "Profile"}
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 rounded-full object-cover ring-1 ring-line-strong"
-                  />
-                ) : null}
-                {user.name ? (
-                  <span className="font-semibold text-ink/80">
-                    {user.name}
-                  </span>
-                ) : null}
-                <form action={logout}>
-                  <button
-                    type="submit"
-                    className="font-semibold text-ink/70 transition-colors hover:text-nl-green-700"
-                  >
-                    Logout
-                  </button>
-                </form>
-              </>
+              <UserMenu user={user} />
             ) : (
               <Link
                 href="/login"
@@ -120,11 +92,16 @@ export default function Navbar({ user }: { user: SessionUser | null }) {
                       className="h-8 w-8 rounded-full object-cover ring-1 ring-line-strong"
                     />
                   ) : null}
-                  {user.name ? (
-                    <span className="font-semibold text-ink/80">
-                      {user.name}
-                    </span>
-                  ) : null}
+                  <div className="min-w-0">
+                    {user.name ? (
+                      <p className="truncate font-semibold text-ink/80">
+                        {user.name}
+                      </p>
+                    ) : null}
+                    {user.email ? (
+                      <p className="truncate text-xs text-fog">{user.email}</p>
+                    ) : null}
+                  </div>
                 </div>
                 <form action={logout}>
                   <button
