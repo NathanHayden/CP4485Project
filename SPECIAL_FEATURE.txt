@@ -1,0 +1,133 @@
+SPECIAL FEATURE - INTERACTIVE MAP OF EVENT LOCATIONS
+St. John's Travel Advisory - CP4485 Final Project
+Live site: https://cp-4485-project.vercel.app/
+
+
+WHAT IT DOES
+------------
+
+The site now shows where events actually happen, not just when.
+
+1. Adding or editing an event. Beside the boxes there is a map of
+   St. John's. You click it to drop a pin where the event happens, and the
+   pin is saved with the event. The pin is optional.
+
+2. The events page. The map sits beside the calendar, half the page each,
+   with a pin for every event that has one. Clicking a pin opens the same
+   details panel that clicking the calendar does.
+
+3. An event's own page. If the event has a pin, a small map shows it close
+   up so you can see the street it is on.
+
+The site is a travel advisory for visitors, and someone reading about an
+event usually wants to know where in the city it is before deciding whether
+to go. Before this the location was only a line of text like "George
+Street", which is not much help if you have never been here.
+
+
+THE TECHNOLOGY
+--------------
+
+Leaflet for the map, react-leaflet as the React wrapper, and the map images
+come from OpenStreetMap.
+
+I picked this over Google Maps on purpose. Google Maps needs an API key
+attached to a billing account and charges per map load past a free
+allowance. Leaflet is open source and OpenStreetMap is free as long as you
+credit them, so there was no account to set up and no extra secret to
+configure when deploying. The credit line is in the corner of every map.
+
+One thing worth knowing: this project uses React 19, and react-leaflet
+version 4 only supports React 18, so installing it fails. Version 5 is the
+one that works with React 19.
+
+
+SEARCHING FOR AN ADDRESS
+------------------------
+
+The location box is also an address search. Typing waits a third of a
+second after the last key and then suggests real addresses; choosing one
+fills the box and drops the pin there. It works the other way too - click
+the map and it looks up what is at that spot and writes the address into
+the box.
+
+The lookups use Photon, which is free, needs no account, and is built for
+suggesting as you type. Nominatim, the other free option, says in its own
+rules that it must not be used for as-you-type suggestions.
+
+Both directions go through routes in this project rather than being called
+straight from the browser. That matches how the weather is fetched, lets
+the answers be kept for a day instead of asking the same thing repeatedly,
+and lets us identify ourselves, which some free services require.
+
+The search is a convenience on top of the pin, not something the map
+depends on. Our location field is free text, so people type things like
+"George Street" with no city or postcode and an address service can guess
+wrong. Because clicking the map came first, a failed lookup costs nothing:
+the pin is still dropped and saved, and the box carries on working as an
+ordinary text box.
+
+
+THE MAIN PROBLEM I HAD TO SOLVE
+-------------------------------
+
+Leaflet is built for browsers and reads the browser's window object as soon
+as it loads. Next.js renders pages on the server first, where there is no
+window, so importing Leaflet into a page crashes the build.
+
+The fix is to load the map in the browser only, using Next's dynamic() with
+the option ssr:false. The map components are split in two: an "Inner" file
+that is the only one allowed to import Leaflet, and a wrapper that pulls it
+in with ssr:false. The server never reads the Leaflet code at all. The
+project already used this pattern for the calendar, so the map follows it.
+
+Three smaller problems came with it:
+
+- The default pin was a broken image. Leaflet points at its marker image
+  with a path relative to its own stylesheet, and build tools move that
+  file. I copied the marker images into public/leaflet/ and build the
+  marker with those paths.
+
+- The map floated over the navbar. Leaflet gives its zoom buttons a very
+  high stacking number, so they showed through the sticky navbar while
+  scrolling. Giving the map its own stacking context fixed it.
+
+- Half the map drew as grey nothing. Leaflet measures its box once when the
+  map is built and never checks again. On the events page the map and the
+  calendar load separately, so the map often measured a short box and was
+  then stretched taller when the calendar arrived. A small watcher now
+  tells Leaflet to measure again whenever its box changes size.
+
+
+HOW IT FITS THE REST OF THE PROJECT
+-----------------------------------
+
+- The coordinates are stored on the event itself, so no new collection was
+  needed.
+
+- Events created before this feature have no coordinates. Everywhere that
+  reads an event passes them through a helper that returns nothing when
+  they are missing, so old events keep working and just do not appear on
+  the map. There was no database migration.
+
+- The pin reaches the server in two hidden form fields, so the add form
+  (which posts to an API route) and the edit form (which uses a server
+  action) both pick it up without special handling.
+
+- The map uses the site's theme colours, and the tiles are inverted in dark
+  mode so it is not a bright white rectangle on a dark page.
+
+
+FILES
+-----
+
+src/lib/map.ts                              shared map settings and helpers
+src/lib/geocode.ts                          shared address helpers
+src/components/map/leafletIcon.ts           the marker icon
+src/components/map/MarkersMapInner.tsx      the map that displays pins
+src/components/map/MarkersMap.tsx           loads it in the browser only
+src/components/map/LocationPickerInner.tsx  the click-to-pin map
+src/components/map/LocationPicker.tsx       loads it, holds the hidden fields
+src/components/map/AddressSearchField.tsx   the location box and suggestions
+src/app/api/geocode/search/route.ts         suggestions for what is typed
+src/app/api/geocode/reverse/route.ts        the address at a dropped pin
