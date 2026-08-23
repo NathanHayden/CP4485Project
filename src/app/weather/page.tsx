@@ -106,6 +106,34 @@ function airQualityWord(aqi: number): string {
   return "Extremely poor";
 }
 
+// The heading of each forecast card already shows the temperature, and the
+// paragraph underneath says it again. On most days that is a short repeat
+// like "High 23." On a day with regional variation it is "High 21 except 25
+// inland and where winds blow off the land", which is what made one card
+// three times longer than the rest. The heading keeps it, so it comes out of
+// the paragraph.
+function withoutTemperatureSentence(detail: string): string {
+  const sentences = detail.split(". ");
+  const kept: string[] = [];
+
+  for (const sentence of sentences) {
+    const trimmed = sentence.trim();
+    if (trimmed.startsWith("High ") || trimmed.startsWith("Low ")) {
+      continue;
+    }
+    if (trimmed !== "") {
+      kept.push(trimmed);
+    }
+  }
+
+  if (kept.length === 0) {
+    return detail;
+  }
+
+  // Splitting on ". " takes the full stops off, so they go back on.
+  return kept.join(". ").replace(/\.?$/, ".");
+}
+
 // 49873 seconds of daylight is not something anyone can picture, so it is
 // shown as hours and minutes.
 function hoursAndMinutes(seconds: number): string {
@@ -240,7 +268,9 @@ export default function Weather() {
 
           periods.push({
             name,
-            detail: detail ? detail : en(entry.abbreviatedForecast?.textSummary),
+            detail: withoutTemperatureSentence(
+              detail ? detail : en(entry.abbreviatedForecast?.textSummary)
+            ),
             temperature,
             humidity: entry.relativeHumidity ? en(entry.relativeHumidity) : "",
           });
@@ -361,6 +391,16 @@ export default function Weather() {
   const stats: { label: string; value: string; note?: string }[] = [];
 
   if (conditions) {
+    if (conditions.feelsLike) {
+      const feelsValue = parseFloat(conditions.feelsLike);
+      stats.push({
+        label: "Feels like",
+        value: isFahrenheit
+          ? `${celsiusToFahrenheit(feelsValue)}°F`
+          : `${Math.round(feelsValue)}°C`,
+      });
+    }
+
     if (conditions.humidity) {
       stats.push({
         label: "Humidity",
@@ -725,7 +765,9 @@ export default function Weather() {
             )}
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {/* items-start so a short card stays short. Stretching them to match
+              left a block of empty space beside any longer one. */}
+          <div className="mt-3 grid items-start gap-3 sm:grid-cols-2">
             {shownPeriods.map((period) => (
               <div
                 key={period.name}
@@ -743,7 +785,7 @@ export default function Weather() {
                 </div>
 
                 {period.detail && (
-                  <p className="mt-1.5 flex-1 text-sm leading-relaxed text-ink/80">
+                  <p className="mt-1.5 text-sm leading-relaxed text-ink/80">
                     {period.detail}
                   </p>
                 )}
