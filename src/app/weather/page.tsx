@@ -69,6 +69,15 @@ type AirQuality = {
   pm10: number | null;
 };
 
+type Extras = {
+  visibility: number | null;
+  cloudCover: number | null;
+  precipitationNow: number | null;
+  uvIndex: number | null;
+  precipitationToday: number | null;
+  daylightSeconds: number | null;
+};
+
 type HourlyEntry = {
   at: number;
   temp: number;
@@ -96,6 +105,13 @@ function airQualityWord(aqi: number): string {
   if (aqi <= 80) return "Poor";
   if (aqi <= 100) return "Very poor";
   return "Extremely poor";
+}
+
+// 49873 seconds of daylight is not something anyone can picture, so it is
+// shown as hours and minutes.
+function hoursAndMinutes(seconds: number): string {
+  const whole = Math.round(seconds / 60);
+  return `${Math.floor(whole / 60)}h ${whole % 60}m`;
 }
 
 function celsiusToFahrenheit(celsius: number): number {
@@ -154,6 +170,7 @@ export default function Weather() {
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
   const [hourly, setHourly] = useState<HourlyEntry[]>([]);
   const [air, setAir] = useState<AirQuality | null>(null);
+  const [extras, setExtras] = useState<Extras | null>(null);
   const [isFahrenheit, setIsFahrenheit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -293,6 +310,19 @@ export default function Weather() {
         console.error("Failed to load the hourly forecast:", caught)
       );
 
+    // Readings Environment Canada does not publish. Optional like the rest:
+    // a failure just means those boxes are not there.
+    fetch("/api/weather/extra")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && !data.error) {
+          setExtras(data);
+        }
+      })
+      .catch((caught) =>
+        console.error("Failed to load the extra readings:", caught)
+      );
+
     // Also optional. Without it the two air quality boxes simply do not show.
     fetch("/api/weather/air")
       .then((res) => res.json())
@@ -376,6 +406,49 @@ export default function Weather() {
   // Today's rain chance rounds the grid out and is the one thing a visitor
   // deciding what to do actually wants to know. It comes from the forecast
   // request rather than the current conditions, so it is added separately.
+  if (extras && extras.visibility !== null) {
+    const kilometres = extras.visibility / 1000;
+    stats.push({
+      label: "Visibility",
+      value: isFahrenheit
+        ? `${Math.round(kilometres * 0.621)} mi`
+        : `${Math.round(kilometres)} km`,
+    });
+  }
+
+  if (extras && extras.uvIndex !== null) {
+    stats.push({
+      label: "UV index",
+      value: String(Math.round(extras.uvIndex)),
+      note: extras.uvIndex >= 6 ? "Cover up outdoors" : "Low risk today",
+    });
+  }
+
+  if (extras && extras.precipitationToday !== null) {
+    stats.push({
+      label: "Rain today",
+      value: `${extras.precipitationToday.toFixed(1)} mm`,
+      note:
+        extras.precipitationNow !== null && extras.precipitationNow > 0
+          ? "Falling now"
+          : "None falling now",
+    });
+  }
+
+  if (extras && extras.cloudCover !== null) {
+    stats.push({
+      label: "Cloud cover",
+      value: `${Math.round(extras.cloudCover)}%`,
+    });
+  }
+
+  if (extras && extras.daylightSeconds !== null) {
+    stats.push({
+      label: "Daylight",
+      value: hoursAndMinutes(extras.daylightSeconds),
+    });
+  }
+
   if (air && air.aqi !== null) {
     stats.push({
       label: "Air quality",
@@ -397,10 +470,6 @@ export default function Weather() {
     stats.push({
       label: "Rain chance today",
       value: `${todayForecast.rainChance}%`,
-      note:
-        todayForecast.uvIndex !== null
-          ? `UV index ${Math.round(todayForecast.uvIndex)}`
-          : undefined,
     });
   }
 
