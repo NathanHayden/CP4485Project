@@ -63,6 +63,12 @@ type ForecastPeriod = {
   visibility: string;
 };
 
+type AirQuality = {
+  aqi: number | null;
+  pm25: number | null;
+  pm10: number | null;
+};
+
 type HourlyEntry = {
   at: number;
   temp: number;
@@ -79,6 +85,18 @@ type ForecastDay = {
   rainChance: number | null;
   uvIndex: number | null;
 };
+
+// The European air quality index is a number nobody reads at a glance, so it
+// is shown with the word that goes with it. The bands are the ones the index
+// itself defines.
+function airQualityWord(aqi: number): string {
+  if (aqi <= 20) return "Good";
+  if (aqi <= 40) return "Fair";
+  if (aqi <= 60) return "Moderate";
+  if (aqi <= 80) return "Poor";
+  if (aqi <= 100) return "Very poor";
+  return "Extremely poor";
+}
 
 function celsiusToFahrenheit(celsius: number): number {
   return Math.round((celsius * 9) / 5 + 32);
@@ -135,6 +153,7 @@ export default function Weather() {
   const [conditions, setConditions] = useState<Conditions | null>(null);
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
   const [hourly, setHourly] = useState<HourlyEntry[]>([]);
+  const [air, setAir] = useState<AirQuality | null>(null);
   const [isFahrenheit, setIsFahrenheit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -273,6 +292,18 @@ export default function Weather() {
       .catch((caught) =>
         console.error("Failed to load the hourly forecast:", caught)
       );
+
+    // Also optional. Without it the two air quality boxes simply do not show.
+    fetch("/api/weather/air")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.aqi === "number") {
+          setAir(data);
+        }
+      })
+      .catch((caught) =>
+        console.error("Failed to load the air quality:", caught)
+      );
   }, []);
 
   // Every tile is built here rather than written out in the markup, so a
@@ -345,6 +376,22 @@ export default function Weather() {
   // Today's rain chance rounds the grid out and is the one thing a visitor
   // deciding what to do actually wants to know. It comes from the forecast
   // request rather than the current conditions, so it is added separately.
+  if (air && air.aqi !== null) {
+    stats.push({
+      label: "Air quality",
+      value: airQualityWord(air.aqi),
+      note: `European index ${Math.round(air.aqi)}`,
+    });
+  }
+
+  if (air && air.pm25 !== null) {
+    stats.push({
+      label: "Fine particles",
+      value: `${air.pm25.toFixed(1)} µg/m³`,
+      note: air.pm10 !== null ? `Coarse ${air.pm10.toFixed(1)}` : undefined,
+    });
+  }
+
   const todayForecast = forecast.length > 0 ? forecast[0] : null;
   if (todayForecast && todayForecast.rainChance !== null) {
     stats.push({
