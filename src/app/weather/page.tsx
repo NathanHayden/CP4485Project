@@ -57,10 +57,9 @@ type Conditions = {
 // whole point of showing them.
 type ForecastPeriod = {
   name: string;
-  summary: string;
+  detail: string;
   temperature: string;
-  wind: string;
-  visibility: string;
+  humidity: string;
 };
 
 type AirQuality = {
@@ -213,18 +212,37 @@ export default function Weather() {
           if (!name) {
             continue;
           }
+
+          // The short line only says something like "Mainly cloudy". The full
+          // one is a proper paragraph with the chance of showers, the wind,
+          // the humidex and the UV level all written out, which is the whole
+          // reason for showing these at all. Wind and visibility used to be
+          // read from their own fields, but those are filled in on barely one
+          // period in thirteen, which is why one card looked detailed and the
+          // rest looked empty.
+          const detail = en(entry.textSummary);
+
+          // The number on its own, rather than the sentence around it. The
+          // sentence can run to "High 21 except 25 inland and where winds
+          // blow off the land", which does not belong in a heading.
+          let temperature = "";
+          const readings =
+            entry.temperatures && Array.isArray(entry.temperatures.temperature)
+              ? entry.temperatures.temperature
+              : [];
+          if (readings.length > 0) {
+            const kind = en(readings[0].class);
+            const value = en(readings[0]);
+            if (value) {
+              temperature = `${kind === "low" ? "Low" : "High"} ${value}°`;
+            }
+          }
+
           periods.push({
             name,
-            summary: entry.abbreviatedForecast
-              ? en(entry.abbreviatedForecast.textSummary)
-              : "",
-            temperature: entry.temperatures
-              ? en(entry.temperatures.textSummary)
-              : "",
-            wind: entry.winds ? en(entry.winds.textSummary) : "",
-            visibility: entry.visibility
-              ? en(entry.visibility.textSummary)
-              : "",
+            detail: detail ? detail : en(entry.abbreviatedForecast?.textSummary),
+            temperature,
+            humidity: entry.relativeHumidity ? en(entry.relativeHumidity) : "",
           });
         }
 
@@ -473,6 +491,15 @@ export default function Weather() {
     });
   }
 
+  // The cards sit in two columns, so an odd number leaves a gap at the end.
+  // Environment Canada sends thirteen periods, and the last one is the
+  // furthest away and the vaguest, so dropping it costs nothing.
+  let shownPeriods: ForecastPeriod[] = [];
+  if (conditions) {
+    const count = conditions.periods.length;
+    shownPeriods = conditions.periods.slice(0, count - (count % 2));
+  }
+
   const temperature = conditions ? parseFloat(conditions.temp) : 0;
   const feels = conditions ? parseFloat(conditions.feelsLike) : 0;
   const bigTemp = isFahrenheit
@@ -682,7 +709,7 @@ export default function Weather() {
         </section>
       )}
 
-      {conditions && conditions.periods.length > 0 && (
+      {conditions && shownPeriods.length > 0 && (
         <section className="mt-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -699,10 +726,10 @@ export default function Weather() {
           </div>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {conditions.periods.map((period) => (
+            {shownPeriods.map((period) => (
               <div
                 key={period.name}
-                className="rounded-2xl border border-line bg-surface p-4"
+                className="flex flex-col rounded-2xl border border-line bg-surface p-4"
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <h3 className="font-display text-base font-extrabold text-ink">
@@ -715,15 +742,15 @@ export default function Weather() {
                   )}
                 </div>
 
-                {period.summary && (
-                  <p className="mt-1.5 text-sm text-ink/80">{period.summary}</p>
+                {period.detail && (
+                  <p className="mt-1.5 flex-1 text-sm leading-relaxed text-ink/80">
+                    {period.detail}
+                  </p>
                 )}
 
-                {/* Wind and visibility are only written for some periods, so
-                    they appear when Environment Canada has something to say. */}
-                {(period.wind || period.visibility) && (
-                  <p className="mt-2 border-t border-line pt-2 text-xs text-fog">
-                    {[period.wind, period.visibility].filter(Boolean).join(" ")}
+                {period.humidity && (
+                  <p className="mt-3 border-t border-line pt-2 text-xs text-fog">
+                    Humidity around {period.humidity}%
                   </p>
                 )}
               </div>
