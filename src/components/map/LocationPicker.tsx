@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import dynamic from "next/dynamic";
 
 const LocationPickerInner = dynamic(() => import("./LocationPickerInner"), {
@@ -10,43 +9,42 @@ const LocationPickerInner = dynamic(() => import("./LocationPickerInner"), {
   ),
 });
 
+// The pin used to be remembered in here. It now lives in the event form
+// instead, because picking an address from the search box has to move the pin
+// too, and the search box is up in the form. This component draws the map and
+// reports clicks back; the form decides what the pin is.
 export default function LocationPicker({
-  defaultLatitude,
-  defaultLongitude,
+  latitude,
+  longitude,
+  centerOn,
+  onPick,
+  onClear,
 }: {
-  defaultLatitude: number | null;
-  defaultLongitude: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  centerOn: { latitude: number; longitude: number } | null;
+  onPick: (latitude: number, longitude: number) => void;
+  onClear: () => void;
 }) {
-  const [latitude, setLatitude] = useState<number | null>(defaultLatitude);
-  const [longitude, setLongitude] = useState<number | null>(defaultLongitude);
-
-  function handlePick(newLatitude: number, newLongitude: number) {
-    setLatitude(newLatitude);
-    setLongitude(newLongitude);
-  }
-
-  function handleClear() {
-    setLatitude(null);
-    setLongitude(null);
-  }
-
   const hasPin = latitude !== null && longitude !== null;
 
   return (
     // Deliberately not wrapped in <Field>. Field renders a <label>, and a map
-    // inside a label makes every click on it also try to focus a form input.
+    // inside a label makes every click on it also try to focus a form box.
     // The label styling below is copied from Field to match the other rows.
     <div>
       <span className="text-sm font-semibold">Pin the spot (optional)</span>
       <p className="mt-1 text-xs text-fog">
-        Click the map to drop a pin where the event happens.
+        Click the map to drop a pin, or search for an address above and we will
+        drop it for you.
       </p>
 
-      <div className="mt-2 h-72 overflow-hidden rounded-lg border border-line-strong">
+      <div className="mt-2 h-72 overflow-hidden rounded-lg border border-line-strong lg:h-[26rem]">
         <LocationPickerInner
           latitude={latitude}
           longitude={longitude}
-          onPick={handlePick}
+          centerOn={centerOn}
+          onPick={onPick}
         />
       </div>
 
@@ -73,7 +71,7 @@ export default function LocationPicker({
         {hasPin && (
           <button
             type="button"
-            onClick={handleClear}
+            onClick={onClear}
             className="text-xs font-bold text-nl-pink-700 hover:underline"
           >
             Remove pin
