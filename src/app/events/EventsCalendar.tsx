@@ -6,11 +6,17 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import type { EventClickArg, EventInput } from "@fullcalendar/core";
+import type {
+  EventClickArg,
+  EventInput,
+  EventContentArg,
+} from "@fullcalendar/core";
 import type { TravelEvent } from "./types";
 import Card from "@/components/Card";
 import TricolourBar from "@/components/TricolourBar";
 import Button from "@/components/Button";
+import MarkersMap from "@/components/map/MarkersMap";
+import { ST_JOHNS_CENTER, CITY_ZOOM, type MapMarker } from "@/lib/map";
 
 const fcTheme = {
   "--fc-border-color": "var(--color-line)",
@@ -21,9 +27,12 @@ const fcTheme = {
   "--fc-button-active-bg-color": "#007a40",
   "--fc-button-active-border-color": "#007a40",
   "--fc-today-bg-color": "rgba(0,168,89,0.1)",
-  "--fc-event-bg-color": "#ff94cb",
-  "--fc-event-border-color": "#ff94cb",
-  "--fc-event-text-color": "#14201a",
+  // Transparent, because each event draws its own little chip below in
+  // renderEvent. Left as a solid pink block, a long title turned into an
+  // unreadable slab that spilled over the edge of the day.
+  "--fc-event-bg-color": "transparent",
+  "--fc-event-border-color": "transparent",
+  "--fc-event-text-color": "var(--color-ink)",
   "--fc-page-bg-color": "var(--color-surface)",
   "--fc-neutral-bg-color": "var(--color-surface-muted)",
 } as React.CSSProperties;
@@ -37,6 +46,48 @@ const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
     <p className="py-10 text-center text-sm text-fog">Loading calendar…</p>
   ),
 });
+
+// A colour per category so a month at a glance shows what kind of thing is
+// on, without needing a key to read it.
+const CATEGORY_DOT: Record<string, string> = {
+  Music: "bg-nl-pink-600",
+  "Food & Drink": "bg-amber-500",
+  Festival: "bg-violet-500",
+  Outdoors: "bg-nl-green",
+  Arts: "bg-rose-500",
+  Community: "bg-sky-500",
+  Sports: "bg-orange-500",
+  Other: "bg-fog",
+};
+
+// FullCalendar draws a coloured block by default, which cut long titles off
+// mid-word and looked nothing like the rest of the site. This draws a small
+// chip instead: a dot for the category, the time when there is one, and the
+// title cut with an ellipsis rather than clipped. The full title is in the
+// tooltip and in the panel below.
+function renderEvent(arg: EventContentArg) {
+  const event = arg.event.extendedProps as TravelEvent;
+  const dot = CATEGORY_DOT[event.category]
+    ? CATEGORY_DOT[event.category]
+    : CATEGORY_DOT.Other;
+
+  return (
+    <div
+      title={`${arg.event.title}${event.location ? ` — ${event.location}` : ""}`}
+      className="flex w-full items-center gap-1 overflow-hidden rounded px-1 py-0.5"
+    >
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+      {arg.timeText && (
+        <span className="shrink-0 text-[0.6rem] font-bold text-fog">
+          {arg.timeText}
+        </span>
+      )}
+      <span className="truncate text-[0.7rem] font-semibold text-ink">
+        {arg.event.title}
+      </span>
+    </div>
+  );
+}
 
 function prettyTime(t: string): string {
   if (!t) return "";
@@ -75,10 +126,41 @@ export default function EventsCalendar({
     [events]
   );
 
+  // The pins for the map beside the calendar. Built with a plain loop rather
+  // than filter then map, because filter does not tell TypeScript that
+  // latitude and longitude stopped being null.
+  const markers = useMemo<MapMarker[]>(() => {
+    const list: MapMarker[] = [];
+    for (const event of events) {
+      if (event.latitude === null || event.longitude === null) {
+        continue;
+      }
+      list.push({
+        id: event._id,
+        title: event.title,
+        subtitle: event.location,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        href: `/events/${event._id}`,
+      });
+    }
+    return list;
+  }, [events]);
+
   function handleEventClick(info: EventClickArg) {
     info.jsEvent.preventDefault();
     setDeleteError(null);
     setSelected(info.event.extendedProps as TravelEvent);
+  }
+
+  // Clicking a pin opens the same details panel a calendar click does, so the
+  // two halves of the page act like one thing rather than two.
+  function handleMarkerClick(id: string) {
+    const found = events.find((event) => event._id === id);
+    if (found) {
+      setDeleteError(null);
+      setSelected(found);
+    }
   }
 
   async function handleDelete() {
@@ -111,38 +193,86 @@ export default function EventsCalendar({
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_22rem]">
-      <Card className="overflow-hidden p-4 sm:p-5" style={fcTheme}>
-        <TricolourBar className="mb-4 h-1.5 w-full rounded-full" />
-        <FullCalendar
-          plugins={[dayGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: "",
-          }}
-          firstDay={0}
-          height="auto"
-          events={fcEvents}
-          eventClick={handleEventClick}
-          dayMaxEvents={3}
-        />
-      </Card>
+    <div className="space-y-6">
+      {/* One row, two halves. Stacked on a phone and side by side from lg up,
+          which is the breakpoint the rest of the app splits at. The map used
+          to sit far below the calendar, where nobody scrolled to find it. */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="overflow-hidden p-4 sm:p-5" style={fcTheme}>
+          <TricolourBar className="mb-4 h-1.5 w-full rounded-full" />
+          {/* A month grid can only be squeezed so far before the day numbers
+              collide. Below that it scrolls sideways instead of being cut off
+              by the card, which is what used to happen on a narrow screen. */}
+          <div className="overflow-x-auto">
+            <div className="min-w-[19rem]">
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "",
+            }}
+            firstDay={0}
+            height="auto"
+            events={fcEvents}
+            eventClick={handleEventClick}
+            eventContent={renderEvent}
+            // Every event drawn the same way, so a one day event and one that
+            // runs over several days do not look like different things.
+            eventDisplay="block"
+            // Two rather than three, because each day box is narrower now
+            // that the calendar only has half the width.
+            dayMaxEvents={2}
+          />
+            </div>
+          </div>
+        </Card>
 
-      <aside>
-        <h3 className="font-display text-lg font-extrabold">
-          {selected ? selected.title : "Event details"}
-        </h3>
+        {/* A flex column so the map can take whatever height is left under the
+            heading and the caption. The row is as tall as the calendar, this
+            card stretches to fill it, and flex-1 passes that height down to
+            the map. The min height keeps it usable on a phone, where there is
+            no calendar beside it to stretch against. */}
+        <Card className="flex flex-col overflow-hidden p-4 sm:p-5">
+          <h3 className="font-display text-lg font-extrabold">Event map</h3>
 
-        {!selected && (
-          <p className="mt-3 text-sm text-fog">
-            Click an event on the calendar to see the details.
-          </p>
-        )}
+          {markers.length === 0 ? (
+            <p className="mt-3 text-sm text-fog">
+              No events have been pinned to the map yet. Drop a pin when you
+              add or edit an event and it will show up here.
+            </p>
+          ) : (
+            <>
+              <div className="mt-3 min-h-[20rem] flex-1 overflow-hidden rounded-xl border border-line">
+                <MarkersMap
+                  markers={markers}
+                  center={[ST_JOHNS_CENTER.latitude, ST_JOHNS_CENTER.longitude]}
+                  zoom={CITY_ZOOM}
+                  heightClass="h-full"
+                  onMarkerClick={handleMarkerClick}
+                />
+              </div>
+              <p className="mt-3 text-xs text-fog">
+                {markers.length} of {events.length}{" "}
+                {events.length === 1 ? "event has" : "events have"} a pin. Click
+                a pin to see the details.
+              </p>
+            </>
+          )}
+        </Card>
+      </div>
 
-        {selected && (
-          <Card className="mt-4 p-4">
+      {/* The details sit under both halves now. There is no "click an event"
+          placeholder any more: an empty panel below the board would just be a
+          strip of nothing. */}
+      {selected && (
+        <div>
+          <h3 className="font-display text-lg font-extrabold">
+            {selected.title}
+          </h3>
+
+          <Card className="mt-3 p-4">
             <div className="flex items-start justify-between gap-2">
               <span className="shrink-0 rounded-full bg-nl-green-50 px-2 py-0.5 text-[0.65rem] font-bold text-nl-green-700">
                 {selected.category}
@@ -212,8 +342,8 @@ export default function EventsCalendar({
               </>
             )}
           </Card>
-        )}
-      </aside>
+        </div>
+      )}
     </div>
   );
 }
