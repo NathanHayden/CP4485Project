@@ -370,16 +370,19 @@ export default function Weather() {
       {/* Photo banner with the reading laid over it, so the page opens with
           something to look at rather than a lone card on an empty screen. */}
       <section className="relative overflow-hidden rounded-3xl">
+        {/* Behind the words, stretching to fit them. A fixed height here cut
+            the temperature off on a narrow screen, where the name of the city
+            and the °F button each take a line of their own. */}
         <Image
           src={skyline}
           alt="St. John's"
           placeholder="blur"
           priority
-          className="h-72 w-full object-cover sm:h-80"
+          className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
 
-        <div className="absolute inset-0 flex flex-col justify-between p-6 sm:p-8">
+        <div className="relative flex min-h-[18rem] flex-col justify-between gap-6 p-6 sm:min-h-[20rem] sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-nl-pink-100">
@@ -415,7 +418,7 @@ export default function Weather() {
                   className="h-14 w-14 text-white sm:h-16 sm:w-16"
                 />
                 <div>
-                  <p className="font-display text-6xl font-extrabold leading-none text-white sm:text-7xl">
+                  <p className="font-display text-5xl font-extrabold leading-none text-white sm:text-7xl">
                     {bigTemp}
                     <span className="align-top text-2xl text-white/70">
                       {unit}
