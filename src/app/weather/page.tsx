@@ -112,15 +112,26 @@ function airQualityWord(aqi: number): string {
 // inland and where winds blow off the land", which is what made one card
 // three times longer than the rest. The heading keeps it, so it comes out of
 // the paragraph.
-function withoutTemperatureSentence(detail: string): string {
+function tidyForecast(detail: string): string {
   const sentences = detail.split(". ");
   const kept: string[] = [];
 
   for (const sentence of sentences) {
-    const trimmed = sentence.trim();
+    let trimmed = sentence.trim();
+
     if (trimmed.startsWith("High ") || trimmed.startsWith("Low ")) {
       continue;
     }
+
+    // Environment Canada writes one forecast for the whole region, so several
+    // sentences carry a note about somewhere else: "Humidex 25 except 27
+    // inland and where winds blow off the land". This site is only about
+    // St. John's, and that tail was most of what made one card run long.
+    const exceptAt = trimmed.indexOf(" except ");
+    if (exceptAt > 0) {
+      trimmed = trimmed.slice(0, exceptAt);
+    }
+
     if (trimmed !== "") {
       kept.push(trimmed);
     }
@@ -268,7 +279,7 @@ export default function Weather() {
 
           periods.push({
             name,
-            detail: withoutTemperatureSentence(
+            detail: tidyForecast(
               detail ? detail : en(entry.abbreviatedForecast?.textSummary)
             ),
             temperature,
@@ -765,9 +776,7 @@ export default function Weather() {
             )}
           </div>
 
-          {/* items-start so a short card stays short. Stretching them to match
-              left a block of empty space beside any longer one. */}
-          <div className="mt-3 grid items-start gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {shownPeriods.map((period) => (
               <div
                 key={period.name}
@@ -784,8 +793,11 @@ export default function Weather() {
                   )}
                 </div>
 
+                {/* A minimum of about three lines, so a one line forecast and
+                    a three line one take the same room and the cards in a row
+                    end up the same height. */}
                 {period.detail && (
-                  <p className="mt-1.5 text-sm leading-relaxed text-ink/80">
+                  <p className="mt-1.5 min-h-[4rem] flex-1 text-sm leading-relaxed text-ink/80">
                     {period.detail}
                   </p>
                 )}
