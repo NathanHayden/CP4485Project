@@ -90,6 +90,21 @@
   color: var(--color-ink);
 }
 
+/* Belt and braces so a long event title can never push out past the edge of
+   its day. The chip itself already cuts the text with an ellipsis, but only
+   if the box around it refuses to grow. */
+.fc .fc-daygrid-event-harness,
+.fc .fc-daygrid-event {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* FullCalendar draws its own little dot for list style events. Ours is drawn
+   inside the chip, with the colour of the category, so this one is hidden. */
+.fc .fc-daygrid-event-dot {
+  display: none;
+}
+
 /* Set by the script in layout.tsx when the opening animation has already
    played this visit. Hiding it in CSS rather than in React means there is no
    flash of it on the way to being removed. */

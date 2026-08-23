@@ -64,9 +64,11 @@ export default async function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `try {
+  // Dark is what this site is meant to look like, so it is the starting
+  // point. The only thing that turns it off is someone choosing light
+  // themselves, which is remembered from last time.
   var saved = localStorage.getItem("theme");
-  var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  if (saved === "dark" || (saved === null && prefersDark)) {
+  if (saved !== "light") {
     document.documentElement.classList.add("dark");
   }
   if (sessionStorage.getItem("splashSeen")) {

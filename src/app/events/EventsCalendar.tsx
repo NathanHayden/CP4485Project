@@ -218,9 +218,12 @@ export default function EventsCalendar({
             events={fcEvents}
             eventClick={handleEventClick}
             eventContent={renderEvent}
-            // Every event drawn the same way, so a one day event and one that
-            // runs over several days do not look like different things.
-            eventDisplay="block"
+            // Every event stays inside the day it belongs to. Drawn as blocks,
+            // anything with an end date on a later day stretched into a bar
+            // across several squares, which read as a mistake even though it
+            // was correct. An event over more than one day now simply appears
+            // on each of those days.
+            eventDisplay="list-item"
             // Two rather than three, because each day box is narrower now
             // that the calendar only has half the width.
             dayMaxEvents={2}
