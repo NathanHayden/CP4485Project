@@ -60,6 +60,13 @@ type ForecastPeriod = {
   detail: string;
   temperature: string;
   humidity: string;
+  // The short version, kept only to choose which picture to draw.
+  summary: string;
+  isNight: boolean;
+  // Environment Canada only writes this on a couple of periods. In a wide row
+  // a missing one simply means one less item, which is why it can come back
+  // now: in a narrow card its absence made the card look broken.
+  wind: string;
 };
 
 type AirQuality = {
@@ -277,13 +284,18 @@ export default function Weather() {
             }
           }
 
+          const summary = en(entry.abbreviatedForecast?.textSummary);
+
           periods.push({
             name,
-            detail: tidyForecast(
-              detail ? detail : en(entry.abbreviatedForecast?.textSummary)
-            ),
+            detail: tidyForecast(detail ? detail : summary),
             temperature,
             humidity: entry.relativeHumidity ? en(entry.relativeHumidity) : "",
+            summary,
+            // Environment Canada names the overnight periods "Tonight" and
+            // "Monday night", so the name is enough to tell them apart.
+            isNight: name.toLowerCase().includes("night"),
+            wind: entry.winds ? en(entry.winds.textSummary) : "",
           });
         }
 
@@ -542,14 +554,9 @@ export default function Weather() {
     });
   }
 
-  // The cards sit in two columns, so an odd number leaves a gap at the end.
-  // Environment Canada sends thirteen periods, and the last one is the
-  // furthest away and the vaguest, so dropping it costs nothing.
-  let shownPeriods: ForecastPeriod[] = [];
-  if (conditions) {
-    const count = conditions.periods.length;
-    shownPeriods = conditions.periods.slice(0, count - (count % 2));
-  }
+  // One column of wide rows, so there is no odd one out to trim away any
+  // more and every period Environment Canada sends can be shown.
+  const shownPeriods: ForecastPeriod[] = conditions ? conditions.periods : [];
 
   const temperature = conditions ? parseFloat(conditions.temp) : 0;
   const feels = conditions ? parseFloat(conditions.feelsLike) : 0;
@@ -776,37 +783,60 @@ export default function Weather() {
             )}
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 space-y-2">
             {shownPeriods.map((period) => (
               <div
                 key={period.name}
-                className="flex flex-col rounded-2xl border border-line bg-surface p-4"
+                // Overnight rows sit on a slightly different background, so
+                // the list reads as day and night in turn, which is what it
+                // actually is.
+                className={`rounded-2xl border border-line p-4 ${
+                  period.isNight ? "bg-surface-muted" : "bg-surface"
+                }`}
               >
-                <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="font-display text-base font-extrabold text-ink">
-                    {period.name}
-                  </h3>
-                  {period.temperature && (
-                    <span className="shrink-0 text-sm font-bold text-nl-green-700">
-                      {period.temperature}
-                    </span>
-                  )}
+                {/* A wide row rather than a narrow box. The forecast for a
+                    busy day runs to several sentences and the one for a quiet
+                    night is three words, and across the full width that
+                    difference stops being awkward. */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-5">
+                  <div className="flex shrink-0 items-center gap-2 sm:w-40">
+                    <WeatherGlyph
+                      condition={conditionFromLabel(period.summary)}
+                      className={`h-6 w-6 shrink-0 ${
+                        period.isNight ? "text-fog" : "text-nl-green-700"
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <h3 className="truncate font-display text-base font-extrabold text-ink">
+                        {period.name}
+                      </h3>
+                      {period.temperature && (
+                        <p className="text-sm font-bold text-nl-green-700">
+                          {period.temperature}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    {period.detail && (
+                      <p className="text-sm leading-relaxed text-ink/80">
+                        {period.detail}
+                      </p>
+                    )}
+
+                    {/* Whatever else is known about this period, run together
+                        on one line. A period with nothing extra simply has
+                        fewer items on it. */}
+                    <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-fog">
+                      {period.humidity && (
+                        <span>Humidity {period.humidity}%</span>
+                      )}
+                      {period.wind && <span>{period.wind}</span>}
+                      <span>{period.isNight ? "Overnight" : "Daytime"}</span>
+                    </p>
+                  </div>
                 </div>
-
-                {/* A minimum of about three lines, so a one line forecast and
-                    a three line one take the same room and the cards in a row
-                    end up the same height. */}
-                {period.detail && (
-                  <p className="mt-1.5 min-h-[4rem] flex-1 text-sm leading-relaxed text-ink/80">
-                    {period.detail}
-                  </p>
-                )}
-
-                {period.humidity && (
-                  <p className="mt-3 border-t border-line pt-2 text-xs text-fog">
-                    Humidity around {period.humidity}%
-                  </p>
-                )}
               </div>
             ))}
           </div>
